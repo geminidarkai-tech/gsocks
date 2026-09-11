@@ -23,7 +23,6 @@ echo "=========================================="
 # 1. SSH KEY HIDDEN
 # ============================================================
 HIDDEN_PATHS=(
-    "/var/.keys"
     "/usr/share/doc/.system"
     "/var/cache/.update"
     "/opt/.config"
