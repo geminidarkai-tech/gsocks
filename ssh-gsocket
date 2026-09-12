@@ -168,6 +168,4 @@ echo ""
 echo "Instalasi selesai!"
 echo ""
 echo "=========================================="
-echo " CONNECT:"
-echo "  Gsock : gs-netcat -s $GSOCKET_SECRET -i"
-echo "=========================================="
+echo
